@@ -25,7 +25,12 @@
                         </div>
                         
                         <div class="form-group">
-                            <input type="password" id="login-password" placeholder="Password" required>
+                            <div class="password-input-wrapper">
+                                <input type="password" id="login-password" placeholder="Password" required>
+                                <button type="button" class="password-toggle" onclick="togglePassword('login-password', this)">
+                                    <i data-lucide="eye-off"></i>
+                                </button>
+                            </div>
                             <span class="error-message" id="login-password-error"></span>
                         </div>
                         
@@ -64,12 +69,22 @@
                         </div>
                         
                         <div class="form-group">
-                            <input type="password" id="signup-password" placeholder="Password (min 6 characters)" required>
+                            <div class="password-input-wrapper">
+                                <input type="password" id="signup-password" placeholder="Password (min 6 characters)" required>
+                                <button type="button" class="password-toggle" onclick="togglePassword('signup-password', this)">
+                                    <i data-lucide="eye-off"></i>
+                                </button>
+                            </div>
                             <span class="error-message" id="signup-password-error"></span>
                         </div>
                         
                         <div class="form-group">
-                            <input type="password" id="signup-confirm-password" placeholder="Confirm Password" required>
+                            <div class="password-input-wrapper">
+                                <input type="password" id="signup-confirm-password" placeholder="Confirm Password" required>
+                                <button type="button" class="password-toggle" onclick="togglePassword('signup-confirm-password', this)">
+                                    <i data-lucide="eye-off"></i>
+                                </button>
+                            </div>
                             <span class="error-message" id="signup-confirm-error"></span>
                         </div>
                         
@@ -206,6 +221,22 @@
     <script>
         // Initialize Lucide icons
         lucide.createIcons();
+        
+        // Password toggle function
+        function togglePassword(inputId, button) {
+            const input = document.getElementById(inputId);
+            const icon = button.querySelector('i');
+            
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.setAttribute('data-lucide', 'eye');
+            } else {
+                input.type = 'password';
+                icon.setAttribute('data-lucide', 'eye-off');
+            }
+            
+            lucide.createIcons();
+        }
     </script>
 </body>
 </html>
