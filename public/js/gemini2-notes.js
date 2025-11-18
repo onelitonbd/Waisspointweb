@@ -216,13 +216,67 @@ ${topic}, concepts, principles, applications, theory, practice`;
         }
     }
 
-    // Method for direct note generation from chat
-    async generateFromConversation(sessionTitle, messages) {
-        const conversationText = messages
-            .filter(msg => msg.sender === 'user' || msg.sender === 'ai')
-            .map(msg => `${msg.sender.toUpperCase()}: ${msg.content}`)
-            .join('\n\n');
+    // Generate session note for recent messages
+    async generateSessionNote(conversationText) {
+        try {
+            const topic = this.detectTopicFromConversation(conversationText);
+            const noteContent = await this.createSessionNote(conversationText, topic);
+            
+            return {
+                success: true,
+                noteTitle: topic,
+                noteContent: noteContent
+            };
+        } catch (error) {
+            console.error('Error generating session note:', error);
+            return {
+                success: false,
+                error: error.message
+            };
+        }
+    }
 
-        return await this.generateNotes(conversationText, sessionTitle);
+    detectTopicFromConversation(conversationText) {
+        const lines = conversationText.split('\n');
+        const userMessages = lines.filter(line => line.startsWith('USER:'));
+        
+        if (userMessages.length > 0) {
+            const firstQuestion = userMessages[0].replace(/^USER:\s*/i, '');
+            return this.extractTopicFromQuestion(firstQuestion);
+        }
+        
+        return 'Discussion Topic';
+    }
+
+    async createSessionNote(conversationText, topic) {
+        try {
+            const prompt = `Create a concise study note about "${topic}" from this conversation:
+
+${conversationText}
+
+Format as markdown with:
+- Brief explanation of the topic
+- Key points discussed
+- Important details or examples
+
+Keep it focused and under 200 words.`;
+            
+            const { geminiAPI } = await import('./gemini-api.js');
+            return await geminiAPI.generateNotes(prompt, topic);
+        } catch (error) {
+            return this.getFallbackSessionNote(topic, conversationText);
+        }
+    }
+
+    getFallbackSessionNote(topic, conversationText) {
+        return `## ${topic}
+
+Key points from recent discussion:
+
+- Main concepts covered in the conversation
+- Important details and explanations
+- Practical applications discussed
+
+*Note: This is a summary of the recent conversation about ${topic}.*`;
     }
 }

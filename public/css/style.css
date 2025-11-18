@@ -784,6 +784,131 @@ body {
     border-color: #4299e1;
 }
 
+.modal-btn.cancel {
+    background: #f7fafc;
+    color: #4a5568;
+}
+
+.modal-btn.cancel:hover {
+    background: #edf2f7;
+}
+
+.modal-btn.confirm {
+    background: #4299e1;
+    color: white;
+}
+
+.modal-btn.confirm:hover {
+    background: #3182ce;
+}
+
+.modal-btn.delete {
+    background: #e53e3e;
+    color: white;
+}
+
+.modal-btn.delete:hover {
+    background: #c53030;
+}
+
+/* Note Sections */
+.note-section {
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    margin-bottom: 12px;
+    overflow: hidden;
+}
+
+.note-section-header {
+    background: #f7fafc;
+    padding: 12px 16px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: background-color 0.2s ease;
+}
+
+.note-section-header:hover {
+    background: #edf2f7;
+}
+
+.note-section-title {
+    font-weight: 500;
+    color: #2d3748;
+    margin: 0;
+}
+
+.note-section-arrow {
+    transition: transform 0.2s ease;
+}
+
+.note-section-arrow i {
+    width: 16px;
+    height: 16px;
+}
+
+.note-section-header.collapsed .note-section-arrow {
+    transform: rotate(-90deg);
+}
+
+.note-section-content {
+    padding: 16px;
+    background: white;
+    border-top: 1px solid #e2e8f0;
+    max-height: 1000px;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+}
+
+.note-section-content.collapsed {
+    max-height: 0;
+    padding: 0 16px;
+}
+
+.notes-container {
+    max-width: 100%;
+}
+
+.notes-header {
+    background: #f0f9ff;
+    border: 1px solid #0ea5e9;
+    padding: 16px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    text-align: center;
+    min-height: 80px;
+    max-width: 600px;
+    margin: 0 auto 20px auto;
+}
+
+.notes-header h2 {
+    margin: 0 0 8px 0;
+    color: #0369a1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.notes-header .notes-info {
+    font-size: 14px;
+    color: #0284c7;
+}
+
+.empty-notes {
+    text-align: center;
+    padding: 40px 20px;
+    color: #718096;
+}
+
+.empty-notes i {
+    width: 48px;
+    height: 48px;
+    margin-bottom: 16px;
+    color: #a0aec0;
+}
+
 .modal-actions {
     display: flex;
     gap: 12px;
@@ -989,6 +1114,122 @@ body {
 .note-content {
     line-height: 1.6;
     font-size: 15px;
+}
+
+/* Math expressions - override code styling for math */
+.note-content code:not(.math-inline),
+.markdown-content code:not(.math-inline) {
+    background: #f0f4f8;
+    border: 1px solid #cbd5e0;
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 14px;
+    color: #2d3748;
+    font-weight: 500;
+}
+
+/* Ensure math expressions don't get code styling */
+.note-content .math-inline,
+.markdown-content .math-inline {
+    font-family: 'Times New Roman', 'Computer Modern', 'KaTeX_Main', serif !important;
+    background: none !important;
+    border: none !important;
+    color: #2d3748 !important;
+    padding: 0 !important;
+}
+
+/* Inline math expressions (content between $ symbols) */
+.note-content p,
+.markdown-content p {
+    word-wrap: break-word;
+}
+
+.note-content li,
+.markdown-content li {
+    margin: 6px 0;
+    line-height: 1.7;
+}
+
+/* Math expression styling */
+.math-inline {
+    font-family: 'Times New Roman', 'Computer Modern', 'KaTeX_Main', serif;
+    font-style: normal;
+    color: #2d3748;
+    font-weight: 500;
+    display: inline;
+    margin: 0;
+    line-height: 1.4;
+    font-size: 16px;
+    vertical-align: baseline;
+    white-space: nowrap;
+}
+
+/* Math display mode for block equations */
+.math-display {
+    font-family: 'Times New Roman', 'Computer Modern', 'KaTeX_Main', serif;
+    font-style: normal;
+    color: #2d3748;
+    font-weight: 500;
+    display: block;
+    margin: 16px 0;
+    text-align: center;
+    font-size: 18px;
+    line-height: 1.6;
+}
+
+/* Enhanced math symbols and operators */
+.math-inline sup,
+.math-display sup {
+    font-size: 0.75em;
+    vertical-align: super;
+    line-height: 0;
+}
+
+.math-inline sub,
+.math-display sub {
+    font-size: 0.75em;
+    vertical-align: sub;
+    line-height: 0;
+}
+
+/* Fraction styling */
+.math-fraction {
+    display: inline-block;
+    vertical-align: middle;
+    text-align: center;
+}
+
+.math-fraction .numerator {
+    display: block;
+    border-bottom: 1px solid #0369a1;
+    padding-bottom: 2px;
+    margin-bottom: 2px;
+}
+
+.math-fraction .denominator {
+    display: block;
+    padding-top: 2px;
+}
+
+/* Square root styling */
+.math-sqrt {
+    position: relative;
+    padding-left: 8px;
+}
+
+.math-sqrt::before {
+    content: '√';
+    position: absolute;
+    left: 0;
+    top: -2px;
+    font-size: 1.2em;
+    font-weight: bold;
+}
+
+.math-sqrt .radicand {
+    border-top: 1px solid #0369a1;
+    padding-top: 2px;
 }
 
 .note-content h2 {

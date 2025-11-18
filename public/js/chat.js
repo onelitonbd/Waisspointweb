@@ -100,9 +100,9 @@ class ChatManager {
             await this.saveSession();
             
             // Generate notes if this is a study session and we have enough content
-            if (this.currentSessionType === 'study_sessions' && this.messages.length >= 4 && this.notesManager) {
-                const sessionTitle = this.generateSessionTitle();
-                await this.notesManager.generateNotesFromSession(sessionTitle, this.messages);
+            if (this.currentSessionType === 'study_sessions' && this.messages.length >= 4 && this.messages.length % 4 === 0 && this.notesManager) {
+                const recentMessages = this.messages.slice(-4);
+                await this.notesManager.addNoteToSession(this.currentSessionId, recentMessages);
             }
         } catch (error) {
             console.error('Error getting AI response:', error);

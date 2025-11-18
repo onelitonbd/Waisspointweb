@@ -16,9 +16,9 @@ export class SidebarManager {
     constructor() {
         this.isOpen = false;
         this.sections = {
-            'study-sessions': { collapsed: false, data: [] },
-            'notes': { collapsed: false, data: [] },
-            'exams': { collapsed: false, data: [] }
+            'study-sessions': { collapsed: true, data: [] },
+            'notes': { collapsed: true, data: [] },
+            'exams': { collapsed: true, data: [] }
         };
         this.activeItem = null;
         this.unsubscribes = [];
@@ -28,6 +28,9 @@ export class SidebarManager {
         
         this.initEventListeners();
         this.initFirebaseListeners();
+        
+        // Initialize sections as collapsed
+        this.initCollapsedSections();
         
         // Initialize context menu after DOM is ready
         if (document.readyState === 'loading') {
@@ -85,6 +88,20 @@ export class SidebarManager {
         });
     }
 
+    initCollapsedSections() {
+        // Set all sections to collapsed state on initialization
+        Object.keys(this.sections).forEach(sectionName => {
+            const header = document.getElementById(`${sectionName}-header`);
+            const content = document.getElementById(`${sectionName}-content`);
+            
+            if (header && content) {
+                header.classList.add('collapsed');
+                content.classList.add('collapsed');
+                content.style.maxHeight = '0';
+            }
+        });
+    }
+
     initFirebaseListeners() {
         if (!auth.currentUser) return;
 
@@ -104,17 +121,16 @@ export class SidebarManager {
             this.updateSectionList('study-sessions');
         });
 
-        // Listen to notes
-        const notesQuery = query(
-            collection(db, 'users', userId, 'notes'),
-            orderBy('createdAt', 'desc')
-        );
-        
-        const notesUnsubscribe = onSnapshot(notesQuery, (snapshot) => {
-            this.sections['notes'].data = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            }));
+        // Listen to study sessions for notes
+        const notesUnsubscribe = onSnapshot(studySessionsQuery, (snapshot) => {
+            // Filter study sessions that have notes
+            this.sections['notes'].data = snapshot.docs
+                .map(doc => ({ id: doc.id, ...doc.data() }))
+                .filter(session => session.sessionNotes && session.sessionNotes.length > 0)
+                .map(session => ({
+                    ...session,
+                    title: `${session.title} - Notes`
+                }));
             this.updateSectionList('notes');
         });
 
@@ -250,7 +266,13 @@ export class SidebarManager {
 
             // Load the item data
             const userId = auth.currentUser.uid;
-            const collectionName = type.replace('-', '_');
+            let collectionName = type.replace('-', '_');
+            
+            // If it's notes, actually load from study_sessions
+            if (type === 'notes') {
+                collectionName = 'study_sessions';
+            }
+            
             const docRef = doc(db, 'users', userId, collectionName, id);
             const docSnap = await getDoc(docRef);
             
@@ -269,11 +291,11 @@ export class SidebarManager {
 
     async displayItem(type, data) {
         if (type === 'notes') {
-            // Handle notes display
+            // Handle notes display - check if it's a study session with notes
             try {
                 const { NotesManager } = await import('./notes.js');
                 const notesManager = new NotesManager();
-                notesManager.displayNote(data);
+                notesManager.displaySessionNotes(data);
             } catch (error) {
                 console.error('Error loading notes:', error);
                 this.fallbackDisplay(type, data);
@@ -289,6 +311,23 @@ export class SidebarManager {
             } catch (error) {
                 console.error('Error loading exam:', error);
                 this.fallbackDisplay(type, data);
+            }
+        } else if (type === 'study-sessions') {
+            // Check if user wants to see notes or chat history
+            if (data.sessionNotes && data.sessionNotes.length > 0) {
+                // Show option or default to chat history
+                if (window.chatManager) {
+                    window.chatManager.loadSession(data, this.activeItem.id, type.replace('-', '_'));
+                } else {
+                    this.fallbackDisplay(type, data);
+                }
+            } else {
+                // No notes, show chat history
+                if (window.chatManager) {
+                    window.chatManager.loadSession(data, this.activeItem.id, type.replace('-', '_'));
+                } else {
+                    this.fallbackDisplay(type, data);
+                }
             }
         } else if (window.chatManager) {
             // Use chat manager for sessions
@@ -533,9 +572,9 @@ export class SidebarManager {
     }
 
     addContextMenuListeners(item) {
-        // Only add context menu to study sessions and exams
+        // Add context menu to study sessions, notes, and exams
         const itemType = item.dataset.type;
-        if (itemType !== 'study-sessions' && itemType !== 'exams') {
+        if (itemType !== 'study-sessions' && itemType !== 'exams' && itemType !== 'notes') {
             return;
         }
         
@@ -731,7 +770,9 @@ export class SidebarManager {
         
         const { type, id } = this.modalTarget;
         const userId = auth.currentUser.uid;
-        const collectionName = type.replace('-', '_');
+        
+        // Notes are stored within study sessions
+        const collectionName = type === 'notes' ? 'study_sessions' : type.replace('-', '_');
         
         const docRef = doc(db, 'users', userId, collectionName, id);
         await updateDoc(docRef, {
@@ -748,10 +789,20 @@ export class SidebarManager {
         
         const { type, id } = this.modalTarget;
         const userId = auth.currentUser.uid;
-        const collectionName = type.replace('-', '_');
         
-        const docRef = doc(db, 'users', userId, collectionName, id);
-        await deleteDoc(docRef);
+        if (type === 'notes') {
+            // For notes, clear the sessionNotes array instead of deleting the document
+            const docRef = doc(db, 'users', userId, 'study_sessions', id);
+            await updateDoc(docRef, {
+                sessionNotes: [],
+                updatedAt: new Date()
+            });
+        } else {
+            // For other types, delete the document
+            const collectionName = type.replace('-', '_');
+            const docRef = doc(db, 'users', userId, collectionName, id);
+            await deleteDoc(docRef);
+        }
         
         // Clear active item if it was the deleted one
         if (this.activeItem && this.activeItem.type === type && this.activeItem.id === id) {
