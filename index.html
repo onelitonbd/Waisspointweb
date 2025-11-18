@@ -108,12 +108,12 @@
                 <!-- Top Bar -->
                 <div class="chat-header">
                     <div class="header-left">
+                        <button id="menu-btn" class="menu-btn">
+                            <i data-lucide="menu"></i>
+                        </button>
                         <span class="app-icon"><i data-lucide="book-open"></i></span>
                         <h2>Study Agent</h2>
                     </div>
-                    <button id="menu-btn" class="menu-btn">
-                        <i data-lucide="menu"></i>
-                    </button>
                 </div>
                 
                 <!-- Chat Messages Area -->
@@ -225,17 +225,16 @@
         // Password toggle function
         function togglePassword(inputId, button) {
             const input = document.getElementById(inputId);
-            const icon = button.querySelector('i');
             
-            if (input.type === 'password') {
-                input.type = 'text';
-                icon.setAttribute('data-lucide', 'eye');
-            } else {
-                input.type = 'password';
-                icon.setAttribute('data-lucide', 'eye-off');
+            if (input) {
+                if (input.type === 'password') {
+                    input.type = 'text';
+                    button.innerHTML = '👁️';
+                } else {
+                    input.type = 'password';
+                    button.innerHTML = '🙈';
+                }
             }
-            
-            lucide.createIcons();
         }
     </script>
 </body>
