@@ -42,11 +42,14 @@ body {
 .auth-header {
     text-align: center;
     margin-bottom: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
 }
 
 .app-icon {
     font-size: 3rem;
-    margin-bottom: 10px;
 }
 
 .app-icon i {

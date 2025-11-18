@@ -49,10 +49,7 @@ class AuthManager {
             this.handleSignup();
         });
 
-        // Logout
-        document.getElementById('logout-btn').addEventListener('click', () => {
-            this.logout();
-        });
+        // Logout (handled by sidebar)
 
         // Real-time validation
         document.getElementById('signup-confirm-password').addEventListener('input', () => {
@@ -264,5 +261,10 @@ class AuthManager {
     }
 }
 
-// Initialize auth manager
-export const authManager = new AuthManager();
+// Initialize auth manager when DOM is ready
+let authManager;
+document.addEventListener('DOMContentLoaded', () => {
+    authManager = new AuthManager();
+});
+
+export { authManager };

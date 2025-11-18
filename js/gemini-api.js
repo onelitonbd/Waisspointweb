@@ -1,22 +1,22 @@
 // Gemini API Integration
 // Note: Replace 'YOUR_GEMINI_API_KEY' with your actual API key
 
-const GEMINI_API_KEY = 'YOUR_GEMINI_API_KEY'; // Replace with your actual API key
-const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent';
+const GEMINI_API_KEYS = {
+    gemini1: 'AIzaSyDvebS7E3P_nwZ9pNAhhQEdiy1XS9CKJc0',
+    gemini2: 'AIzaSyCljak_hsmaVgiCk-klGuc98pCJBSsV2gY',
+    gemini3: 'AIzaSyBDgVYYVDOAn_eG2t0QNsVXTweO7UlbkSQ'
+};
+const MODEL_NAME = 'gemini-2.5-flash-lite';
+const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent`;
 
 export class GeminiAPI {
     constructor() {
-        this.apiKey = GEMINI_API_KEY;
+        this.apiKeys = GEMINI_API_KEYS;
     }
 
     async generateResponse(message) {
-        if (this.apiKey === 'YOUR_GEMINI_API_KEY') {
-            // Return simulated response if API key is not set
-            return this.getSimulatedResponse(message);
-        }
-
         try {
-            const response = await fetch(`${GEMINI_API_URL}?key=${this.apiKey}`, {
+            const response = await fetch(`${GEMINI_API_URL}?key=${this.apiKeys.gemini1}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -54,12 +54,8 @@ export class GeminiAPI {
     }
 
     async generateNotes(conversationText, sessionTitle) {
-        if (this.apiKey === 'YOUR_GEMINI_API_KEY') {
-            return this.getSimulatedNotes(sessionTitle);
-        }
-
         try {
-            const response = await fetch(`${GEMINI_API_URL}?key=${this.apiKey}`, {
+            const response = await fetch(`${GEMINI_API_URL}?key=${this.apiKeys.gemini2}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -97,12 +93,8 @@ export class GeminiAPI {
     }
 
     async generateExam(notesContent) {
-        if (this.apiKey === 'YOUR_GEMINI_API_KEY') {
-            return this.getSimulatedExam();
-        }
-
         try {
-            const response = await fetch(`${GEMINI_API_URL}?key=${this.apiKey}`, {
+            const response = await fetch(`${GEMINI_API_URL}?key=${this.apiKeys.gemini3}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
