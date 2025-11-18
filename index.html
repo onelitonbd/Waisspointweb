@@ -8,35 +8,151 @@
 </head>
 <body>
     <div id="app">
-        <!-- Login/Signup will be loaded here -->
-        <div id="auth-container" class="container">
-            <div class="auth-form">
-                <h1>Study Agent</h1>
-                <div class="tab-buttons">
-                    <button id="login-tab" class="tab-btn active">Login</button>
-                    <button id="signup-tab" class="tab-btn">Sign Up</button>
+        <!-- Login Page -->
+        <div id="login-page" class="auth-page">
+            <div class="auth-container">
+                <div class="auth-box">
+                    <div class="auth-header">
+                        <div class="app-icon">📚</div>
+                        <h1>Study Agent</h1>
+                    </div>
+                    
+                    <form id="login-form" class="auth-form">
+                        <div class="form-group">
+                            <input type="email" id="login-email" placeholder="Email" required>
+                            <span class="error-message" id="login-email-error"></span>
+                        </div>
+                        
+                        <div class="form-group">
+                            <input type="password" id="login-password" placeholder="Password" required>
+                            <span class="error-message" id="login-password-error"></span>
+                        </div>
+                        
+                        <button type="submit" class="auth-btn" id="login-btn">
+                            <span class="btn-text">Login</span>
+                            <div class="loading hidden" id="login-loading"></div>
+                        </button>
+                        
+                        <div class="auth-link">
+                            Don't have an account? 
+                            <a href="#" id="show-signup">Sign Up</a>
+                        </div>
+                    </form>
                 </div>
-                
-                <!-- Login Form -->
-                <form id="login-form" class="form active">
-                    <input type="email" id="login-email" placeholder="Email" required>
-                    <input type="password" id="login-password" placeholder="Password" required>
-                    <button type="submit">Login</button>
-                </form>
-                
-                <!-- Signup Form -->
-                <form id="signup-form" class="form">
-                    <input type="text" id="signup-name" placeholder="Full Name" required>
-                    <input type="email" id="signup-email" placeholder="Email" required>
-                    <input type="password" id="signup-password" placeholder="Password" required>
-                    <button type="submit">Sign Up</button>
-                </form>
             </div>
         </div>
         
-        <!-- Main App (hidden initially) -->
-        <div id="main-app" class="hidden">
-            <!-- Will be populated by JavaScript -->
+        <!-- Sign-Up Page -->
+        <div id="signup-page" class="auth-page hidden">
+            <div class="auth-container">
+                <div class="auth-box">
+                    <div class="auth-header">
+                        <div class="app-icon">📚</div>
+                        <h1>Study Agent</h1>
+                    </div>
+                    
+                    <form id="signup-form" class="auth-form">
+                        <div class="form-group">
+                            <input type="text" id="signup-name" placeholder="Full Name" required>
+                            <span class="error-message" id="signup-name-error"></span>
+                        </div>
+                        
+                        <div class="form-group">
+                            <input type="email" id="signup-email" placeholder="Email" required>
+                            <span class="error-message" id="signup-email-error"></span>
+                        </div>
+                        
+                        <div class="form-group">
+                            <input type="password" id="signup-password" placeholder="Password (min 6 characters)" required>
+                            <span class="error-message" id="signup-password-error"></span>
+                        </div>
+                        
+                        <div class="form-group">
+                            <input type="password" id="signup-confirm-password" placeholder="Confirm Password" required>
+                            <span class="error-message" id="signup-confirm-error"></span>
+                        </div>
+                        
+                        <button type="submit" class="auth-btn" id="signup-btn">
+                            <span class="btn-text">Create Account</span>
+                            <div class="loading hidden" id="signup-loading"></div>
+                        </button>
+                        
+                        <div class="auth-link">
+                            Already have an account? 
+                            <a href="#" id="show-login">Login</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Chat Page (hidden initially) -->
+        <div id="chat-page" class="hidden">
+            <div class="chat-container">
+                <!-- Top Bar -->
+                <div class="chat-header">
+                    <div class="header-left">
+                        <span class="app-icon">📘</span>
+                        <h2>Study Agent</h2>
+                    </div>
+                    <button id="menu-btn" class="menu-btn">
+                        <span class="menu-dots">⋮</span>
+                    </button>
+                </div>
+                
+                <!-- Chat Messages Area -->
+                <div class="chat-messages" id="chat-messages">
+                    <div class="message ai-message">
+                        <div class="message-bubble">
+                            <div class="message-content">
+                                Hello! I'm your AI study assistant. I can help you with studying, taking notes, and preparing for exams. What would you like to work on today?
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Chat Input Area -->
+                <div class="chat-input-container">
+                    <div class="input-wrapper">
+                        <input type="text" id="chat-input" class="chat-input" placeholder="Type your message..." maxlength="1000">
+                        <button id="send-btn" class="send-btn" disabled>
+                            <span class="send-icon">➤</span>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Sidebar Menu (hidden initially) -->
+                <div id="sidebar-overlay" class="sidebar-overlay hidden"></div>
+                <div id="sidebar" class="sidebar hidden">
+                    <div class="sidebar-header">
+                        <h3>Menu</h3>
+                        <button id="close-sidebar" class="close-btn">✕</button>
+                    </div>
+                    <div class="sidebar-content">
+                        <button class="sidebar-item" id="new-chat-btn">
+                            <span class="sidebar-icon">💬</span>
+                            New Chat
+                        </button>
+                        <button class="sidebar-item" id="history-btn">
+                            <span class="sidebar-icon">📚</span>
+                            Chat History
+                        </button>
+                        <button class="sidebar-item" id="notes-btn">
+                            <span class="sidebar-icon">📝</span>
+                            Notes
+                        </button>
+                        <button class="sidebar-item" id="exam-btn">
+                            <span class="sidebar-icon">📋</span>
+                            Exam Prep
+                        </button>
+                        <div class="sidebar-divider"></div>
+                        <button class="sidebar-item" id="sidebar-logout-btn">
+                            <span class="sidebar-icon">🚪</span>
+                            Logout
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
