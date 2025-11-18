@@ -123,14 +123,29 @@ export class SidebarManager {
 
     openSidebar() {
         this.isOpen = true;
-        document.getElementById('sidebar').classList.add('open');
-        document.getElementById('sidebar-overlay').classList.remove('hidden');
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebar-overlay');
+        
+        sidebar.classList.remove('hidden');
+        setTimeout(() => {
+            sidebar.classList.add('open');
+        }, 10);
+        overlay.classList.remove('hidden');
     }
 
     closeSidebar() {
         this.isOpen = false;
-        document.getElementById('sidebar').classList.remove('open');
-        document.getElementById('sidebar-overlay').classList.add('hidden');
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebar-overlay');
+        
+        sidebar.classList.remove('open');
+        overlay.classList.add('hidden');
+        
+        setTimeout(() => {
+            if (!this.isOpen) {
+                sidebar.classList.add('hidden');
+            }
+        }, 300);
     }
 
     toggleSection(sectionName) {

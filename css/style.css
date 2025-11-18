@@ -388,8 +388,8 @@ body {
 .sidebar {
     position: fixed;
     top: 0;
-    left: -320px;
-    width: 300px;
+    left: -50%;
+    width: 50%;
     height: 100vh;
     background: white;
     box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
@@ -459,9 +459,15 @@ body {
 .sidebar-item.new-chat-btn {
     background: #4299e1;
     color: white;
-    margin: 0 10px 10px 10px;
+    margin: 0 5px 5px 5px;
     border-radius: 8px;
     font-weight: 500;
+    padding: 4px 6px;
+}
+
+.sidebar-item.new-chat-btn .sidebar-icon i {
+    width: 10px;
+    height: 10px;
 }
 
 .sidebar-item.new-chat-btn:hover {
@@ -865,7 +871,7 @@ body {
     
     .chat-header {
         padding: 0 8px;
-        min-height: 22px;
+        min-height: 18px;
     }
     
     .chat-messages {
@@ -877,8 +883,8 @@ body {
     }
     
     .sidebar {
-        width: 100%;
-        left: -100%;
+        width: 66.67%;
+        left: -66.67%;
     }
     
     .chat-input-container {

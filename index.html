@@ -248,7 +248,10 @@
             
             if (menuBtn) {
                 menuBtn.addEventListener('click', () => {
-                    sidebar.classList.add('open');
+                    sidebar.classList.remove('hidden');
+                    setTimeout(() => {
+                        sidebar.classList.add('open');
+                    }, 10);
                     overlay.classList.remove('hidden');
                 });
             }
@@ -257,6 +260,9 @@
                 closeBtn.addEventListener('click', () => {
                     sidebar.classList.remove('open');
                     overlay.classList.add('hidden');
+                    setTimeout(() => {
+                        sidebar.classList.add('hidden');
+                    }, 300);
                 });
             }
             
@@ -264,6 +270,9 @@
                 overlay.addEventListener('click', () => {
                     sidebar.classList.remove('open');
                     overlay.classList.add('hidden');
+                    setTimeout(() => {
+                        sidebar.classList.add('hidden');
+                    }, 300);
                 });
             }
         });
