@@ -435,9 +435,14 @@ export class SidebarManager {
             // Show loading message
             this.addSystemMessage('<i data-lucide="target" style="width:16px;height:16px;display:inline-block;vertical-align:middle;margin-right:8px;"></i>Generating new exam from your notes...');
             
-            await window.examsManager.generateExamFromNotes();
+            const result = await window.examsManager.generateExamFromNotes();
             
-            this.addSystemMessage('<i data-lucide="check-circle" style="width:16px;height:16px;display:inline-block;vertical-align:middle;margin-right:8px;"></i>New exam generated successfully! Check the Exams section.');
+            if (result.success) {
+                this.addSystemMessage('<i data-lucide="check-circle" style="width:16px;height:16px;display:inline-block;vertical-align:middle;margin-right:8px;"></i>New exam generated successfully! Check the Exams section.');
+            } else {
+                this.addSystemMessage('❌ Error generating exam. Make sure you have notes available.');
+            }
+            
             this.closeSidebar();
         } catch (error) {
             console.error('Error generating exam:', error);

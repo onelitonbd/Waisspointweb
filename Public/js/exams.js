@@ -1,5 +1,6 @@
 // Exams functionality with Gemini3 AI integration
 import { auth, db } from './firebase-config.js';
+import { markdownRenderer } from './markdown-renderer.js';
 import { 
     collection, 
     addDoc, 
@@ -179,12 +180,26 @@ export class ExamsManager {
                         <span class="question-number">Question ${this.currentQuestionIndex + 1}/${this.currentExam.questions.length}</span>
                         <span class="question-type">${question.type.toUpperCase()}</span>
                     </div>
-                    <div class="question-text">${question.question}</div>
+                    <div class="question-text markdown-question"></div>
                     ${this.renderQuestionInput(question)}
                 </div>
             </div>
         `;
         messagesContainer.appendChild(questionDiv);
+        
+        // Render markdown for question text
+        const questionTextDiv = questionDiv.querySelector('.markdown-question');
+        markdownRenderer.renderToElement(questionTextDiv, question.question);
+        
+        // Render markdown for MCQ options
+        const optionElements = questionDiv.querySelectorAll('.markdown-option');
+        if (question.options && optionElements.length > 0) {
+            question.options.forEach((option, index) => {
+                if (optionElements[index]) {
+                    markdownRenderer.renderToElement(optionElements[index], option);
+                }
+            });
+        }
         
         // Reinitialize icons
         if (typeof lucide !== 'undefined') {
@@ -204,7 +219,7 @@ export class ExamsManager {
                         ${question.options.map((option, index) => `
                             <label class="mcq-option">
                                 <input type="radio" name="mcq-answer" value="${index}">
-                                <span class="option-text">${option}</span>
+                                <span class="option-text markdown-option"></span>
                             </label>
                         `).join('')}
                     </div>

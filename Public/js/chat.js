@@ -1,6 +1,8 @@
 // Chat functionality with Gemini API integration
 import { auth, db } from './firebase-config.js';
 import { geminiAPI } from './gemini-api.js';
+import { Gemini1Teacher } from './gemini1-teacher.js';
+import { markdownRenderer } from './markdown-renderer.js';
 import { 
     collection, 
     addDoc, 
@@ -16,6 +18,7 @@ class ChatManager {
         this.currentSessionType = 'study_sessions';
         this.messages = [];
         this.notesManager = null;
+        this.teacher = new Gemini1Teacher();
         this.initEventListeners();
         this.initInputValidation();
         this.initNotesManager();
@@ -72,13 +75,26 @@ class ChatManager {
         this.showTypingIndicator();
 
         try {
-            // Get AI response from Gemini
-            const aiResponse = await this.getGeminiResponse(message);
+            // Add user message to teacher history
+            this.teacher.addToHistory('user', message);
+            
+            // Get teacher response
+            const teacherResult = await this.teacher.processMessage(message);
             
             // Remove typing indicator and add AI response
             this.hideTypingIndicator();
-            this.addMessage('ai', aiResponse);
-            this.messages.push({ sender: 'ai', content: aiResponse, timestamp: new Date() });
+            this.addMessage('ai', teacherResult.response);
+            this.messages.push({ sender: 'ai', content: teacherResult.response, timestamp: new Date() });
+            
+            // Add AI response to teacher history
+            this.teacher.addToHistory('ai', teacherResult.response);
+            
+            // Handle special actions
+            if (teacherResult.action === 'generate_notes') {
+                await this.handleNotesGeneration(teacherResult.content);
+            } else if (teacherResult.action === 'generate_exam') {
+                await this.handleExamGeneration(teacherResult.content);
+            }
             
             // Save to Firebase
             await this.saveSession();
@@ -108,7 +124,13 @@ class ChatManager {
         
         const contentDiv = document.createElement('div');
         contentDiv.className = 'message-content';
-        contentDiv.textContent = content;
+        
+        // Render markdown for AI messages, plain text for user messages
+        if (sender === 'ai') {
+            markdownRenderer.renderToElement(contentDiv, content);
+        } else {
+            contentDiv.textContent = content;
+        }
         
         bubbleDiv.appendChild(contentDiv);
         messageDiv.appendChild(bubbleDiv);
@@ -226,17 +248,51 @@ class ChatManager {
         return `Study Session - ${new Date().toLocaleDateString()}`;
     }
 
+    async handleNotesGeneration(content) {
+        if (this.notesManager) {
+            const sessionTitle = this.generateSessionTitle();
+            const result = await this.notesManager.generateDirectNotes(content, sessionTitle);
+            
+            if (result.success) {
+                this.addMessage('ai', `✅ Notes created successfully! Check the Notes section in the sidebar to view "${result.title}".`);
+            } else {
+                this.addMessage('ai', '❌ Failed to create notes. Please try again.');
+            }
+        }
+    }
+
+    async handleExamGeneration(content) {
+        try {
+            const { ExamsManager } = await import('./exams.js');
+            if (!window.examsManager) {
+                window.examsManager = new ExamsManager();
+            }
+            
+            const result = await window.examsManager.generateExamFromNotes();
+            
+            if (result.success) {
+                this.addMessage('ai', `📋 Exam created successfully! Check the Exams section in the sidebar to take "${result.examData.title}".`);
+            } else {
+                this.addMessage('ai', '❌ Failed to create exam. Make sure you have notes available.');
+            }
+        } catch (error) {
+            console.error('Error generating exam:', error);
+            this.addMessage('ai', '❌ Error generating exam. Please try again.');
+        }
+    }
+
     startNewSession(type = 'study_sessions') {
         this.currentSessionId = null;
         this.currentSessionType = type;
         this.messages = [];
+        this.teacher.clearHistory();
         
         const messagesContainer = document.getElementById('chat-messages');
         messagesContainer.innerHTML = `
             <div class="message ai-message">
                 <div class="message-bubble">
                     <div class="message-content">
-                        Hello! I'm your AI study assistant. I can help you with studying, taking notes, and preparing for exams. What would you like to work on today?
+                        Hello! I'm your personal teacher and I'm excited to help you learn! 🎓 Whether you want to explore a new topic, solve problems, or dive deep into any subject, I'm here to guide you step by step. What would you like to learn about today?
                     </div>
                 </div>
             </div>
@@ -247,6 +303,12 @@ class ChatManager {
         this.currentSessionId = sessionId;
         this.currentSessionType = sessionType;
         this.messages = sessionData.messages || [];
+        
+        // Load conversation into teacher history
+        this.teacher.clearHistory();
+        this.messages.forEach(msg => {
+            this.teacher.addToHistory(msg.sender, msg.content);
+        });
         
         const messagesContainer = document.getElementById('chat-messages');
         messagesContainer.innerHTML = '';
@@ -275,12 +337,20 @@ class ChatManager {
         
         const messageDiv = document.createElement('div');
         messageDiv.className = 'message ai-message';
-        messageDiv.innerHTML = `
-            <div class="message-bubble" style="background: #f7fafc; border: 1px solid #e2e8f0; color: #4a5568;">
-                <div class="message-content" style="font-weight: 500;">${content}</div>
-            </div>
-        `;
         
+        const bubbleDiv = document.createElement('div');
+        bubbleDiv.className = 'message-bubble';
+        bubbleDiv.style.cssText = 'background: #f7fafc; border: 1px solid #e2e8f0; color: #4a5568;';
+        
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'message-content';
+        contentDiv.style.fontWeight = '500';
+        
+        // Render markdown for system messages
+        markdownRenderer.renderToElement(contentDiv, content);
+        
+        bubbleDiv.appendChild(contentDiv);
+        messageDiv.appendChild(bubbleDiv);
         messagesContainer.appendChild(messageDiv);
     }
 }
