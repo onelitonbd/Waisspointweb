@@ -57,6 +57,9 @@ export class SidebarManager {
             this.newChat();
         });
 
+        // Generate exam button (will be added dynamically)
+        this.addGenerateExamButton();
+
         // Profile button
         document.getElementById('profile-btn').addEventListener('click', () => {
             this.showProfile();
@@ -240,8 +243,20 @@ export class SidebarManager {
                 console.error('Error loading notes:', error);
                 this.fallbackDisplay(type, data);
             }
+        } else if (type === 'exams') {
+            // Handle exam display
+            try {
+                const { ExamsManager } = await import('./exams.js');
+                if (!window.examsManager) {
+                    window.examsManager = new ExamsManager();
+                }
+                window.examsManager.displayExam(data, this.activeItem.id);
+            } catch (error) {
+                console.error('Error loading exam:', error);
+                this.fallbackDisplay(type, data);
+            }
         } else if (window.chatManager) {
-            // Use chat manager for sessions and exams
+            // Use chat manager for sessions
             window.chatManager.loadSession(data, this.activeItem.id, type.replace('-', '_'));
         } else {
             this.fallbackDisplay(type, data);
@@ -367,6 +382,44 @@ export class SidebarManager {
     }
 
     // Clean up listeners when user logs out
+    addGenerateExamButton() {
+        // Add generate exam button after notes section
+        const notesSection = document.querySelector('[data-module="notes"]')?.closest('.sidebar-section');
+        if (notesSection) {
+            const examButton = document.createElement('button');
+            examButton.className = 'sidebar-item generate-exam-btn';
+            examButton.innerHTML = `
+                <span class="sidebar-icon">🎯</span>
+                Generate New Exam
+            `;
+            examButton.addEventListener('click', () => {
+                this.generateNewExam();
+            });
+            
+            notesSection.insertAdjacentElement('afterend', examButton);
+        }
+    }
+
+    async generateNewExam() {
+        try {
+            const { ExamsManager } = await import('./exams.js');
+            if (!window.examsManager) {
+                window.examsManager = new ExamsManager();
+            }
+            
+            // Show loading message
+            this.addSystemMessage('🎯 Generating new exam from your notes...');
+            
+            await window.examsManager.generateExamFromNotes();
+            
+            this.addSystemMessage('✅ New exam generated successfully! Check the Exams section.');
+            this.closeSidebar();
+        } catch (error) {
+            console.error('Error generating exam:', error);
+            this.addSystemMessage('❌ Error generating exam. Make sure you have notes available.');
+        }
+    }
+
     cleanup() {
         this.unsubscribes.forEach(unsubscribe => unsubscribe());
         this.unsubscribes = [];

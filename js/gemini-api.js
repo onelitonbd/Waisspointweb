@@ -96,6 +96,80 @@ export class GeminiAPI {
         }
     }
 
+    async generateExam(notesContent) {
+        if (this.apiKey === 'YOUR_GEMINI_API_KEY') {
+            return this.getSimulatedExam();
+        }
+
+        try {
+            const response = await fetch(`${GEMINI_API_URL}?key=${this.apiKey}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    contents: [{
+                        parts: [{
+                            text: `Generate an exam with 3-5 questions based on these notes. Include MCQ (4 options), short answer, and long answer questions. Format as JSON with title and questions array. Notes: ${notesContent}`
+                        }]
+                    }],
+                    generationConfig: {
+                        temperature: 0.4,
+                        topK: 30,
+                        topP: 0.9,
+                        maxOutputTokens: 1024,
+                    }
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`API request failed: ${response.status}`);
+            }
+
+            const data = await response.json();
+            
+            if (data.candidates && data.candidates[0] && data.candidates[0].content) {
+                const examText = data.candidates[0].content.parts[0].text;
+                return JSON.parse(examText);
+            } else {
+                throw new Error('Invalid response format');
+            }
+        } catch (error) {
+            console.error('Gemini3 API error:', error);
+            return this.getSimulatedExam();
+        }
+    }
+
+    getSimulatedExam() {
+        return {
+            title: `Study Exam - ${new Date().toLocaleDateString()}`,
+            questions: [
+                {
+                    type: 'mcq',
+                    question: 'What is the main purpose of taking structured notes during study sessions?',
+                    options: [
+                        'To pass time during boring lectures',
+                        'To organize and retain key information for better learning',
+                        'To impress teachers with neat handwriting',
+                        'To avoid paying attention to the speaker'
+                    ],
+                    correct: 1,
+                    difficulty: 'easy'
+                },
+                {
+                    type: 'short',
+                    question: 'Explain the importance of reviewing notes regularly after a study session.',
+                    difficulty: 'medium'
+                },
+                {
+                    type: 'long',
+                    question: 'Describe a comprehensive study strategy that incorporates note-taking, regular review, and active recall techniques.',
+                    difficulty: 'hard'
+                }
+            ]
+        };
+    }
+
     getSimulatedNotes(sessionTitle) {
         return `# ${sessionTitle} - Notes
 
