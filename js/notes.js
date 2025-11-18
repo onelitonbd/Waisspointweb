@@ -112,7 +112,7 @@ This study session covered essential topics related to ${sessionTitle.toLowerCas
         headerDiv.innerHTML = `
             <div class="message-bubble" style="background: #f7fafc; border: 1px solid #e2e8f0; color: #4a5568;">
                 <div class="message-content" style="font-weight: 500;">
-                    📝 ${noteData.title}
+                    <i data-lucide="file-text" style="width:16px;height:16px;display:inline-block;vertical-align:middle;margin-right:8px;"></i>${noteData.title}
                     <div style="font-size: 12px; color: #718096; margin-top: 5px;">
                         Created: ${this.formatDate(noteData.createdAt)}
                     </div>
@@ -120,6 +120,11 @@ This study session covered essential topics related to ${sessionTitle.toLowerCas
             </div>
         `;
         messagesContainer.appendChild(headerDiv);
+        
+        // Reinitialize icons
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
 
         // Add note content
         const contentDiv = document.createElement('div');
@@ -132,6 +137,11 @@ This study session covered essential topics related to ${sessionTitle.toLowerCas
             </div>
         `;
         messagesContainer.appendChild(contentDiv);
+        
+        // Reinitialize icons
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
 
         messagesContainer.scrollTop = 0;
     }

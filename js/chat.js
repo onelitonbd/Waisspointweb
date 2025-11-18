@@ -253,9 +253,9 @@ class ChatManager {
         
         // Add session header
         const headerMessages = {
-            'study_sessions': `📚 Study Session: ${sessionData.title || 'Untitled Session'}`,
-            'notes': `📝 Notes: ${sessionData.title || 'Untitled Notes'}`,
-            'exams': `📋 Exam: ${sessionData.title || 'Untitled Exam'}`
+            'study_sessions': `<i data-lucide="book" style="width:16px;height:16px;display:inline-block;vertical-align:middle;margin-right:8px;"></i>Study Session: ${sessionData.title || 'Untitled Session'}`,
+            'notes': `<i data-lucide="file-text" style="width:16px;height:16px;display:inline-block;vertical-align:middle;margin-right:8px;"></i>Notes: ${sessionData.title || 'Untitled Notes'}`,
+            'exams': `<i data-lucide="clipboard-list" style="width:16px;height:16px;display:inline-block;vertical-align:middle;margin-right:8px;"></i>Exam: ${sessionData.title || 'Untitled Exam'}`
         };
         
         this.addSystemMessage(headerMessages[sessionType]);

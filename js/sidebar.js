@@ -268,9 +268,9 @@ export class SidebarManager {
         messagesContainer.innerHTML = '';
 
         const headerMessages = {
-            'study-sessions': `📚 Study Session: ${data.title || 'Untitled Session'}`,
-            'notes': `📝 Notes: ${data.title || 'Untitled Notes'}`,
-            'exams': `📋 Exam: ${data.title || 'Untitled Exam'}`
+            'study-sessions': `<i data-lucide="book" style="width:16px;height:16px;display:inline-block;vertical-align:middle;margin-right:8px;"></i>Study Session: ${data.title || 'Untitled Session'}`,
+            'notes': `<i data-lucide="file-text" style="width:16px;height:16px;display:inline-block;vertical-align:middle;margin-right:8px;"></i>Notes: ${data.title || 'Untitled Notes'}`,
+            'exams': `<i data-lucide="clipboard-list" style="width:16px;height:16px;display:inline-block;vertical-align:middle;margin-right:8px;"></i>Exam: ${data.title || 'Untitled Exam'}`
         };
 
         this.addSystemMessage(headerMessages[type]);
@@ -298,6 +298,11 @@ export class SidebarManager {
         `;
         
         messagesContainer.appendChild(messageDiv);
+        
+        // Reinitialize icons
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
     }
 
     addMessage(sender, content) {
@@ -316,6 +321,11 @@ export class SidebarManager {
         bubbleDiv.appendChild(contentDiv);
         messageDiv.appendChild(bubbleDiv);
         messagesContainer.appendChild(messageDiv);
+        
+        // Reinitialize icons
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
     }
 
     newChat() {
@@ -354,7 +364,7 @@ export class SidebarManager {
             <div class="message ai-message">
                 <div class="message-bubble" style="background: #f7fafc; border: 1px solid #e2e8f0;">
                     <div class="message-content">
-                        <strong>👤 Profile Information</strong><br><br>
+                        <strong><i data-lucide="user" style="width:16px;height:16px;display:inline-block;vertical-align:middle;margin-right:8px;"></i>Profile Information</strong><br><br>
                         <strong>Name:</strong> ${user.displayName || 'Not set'}<br>
                         <strong>Email:</strong> ${user.email}<br>
                         <strong>Account created:</strong> ${new Date(user.metadata.creationTime).toLocaleDateString()}<br><br>
@@ -389,7 +399,7 @@ export class SidebarManager {
             const examButton = document.createElement('button');
             examButton.className = 'sidebar-item generate-exam-btn';
             examButton.innerHTML = `
-                <span class="sidebar-icon">🎯</span>
+                <span class="sidebar-icon"><i data-lucide="target"></i></span>
                 Generate New Exam
             `;
             examButton.addEventListener('click', () => {
@@ -408,11 +418,11 @@ export class SidebarManager {
             }
             
             // Show loading message
-            this.addSystemMessage('🎯 Generating new exam from your notes...');
+            this.addSystemMessage('<i data-lucide="target" style="width:16px;height:16px;display:inline-block;vertical-align:middle;margin-right:8px;"></i>Generating new exam from your notes...');
             
             await window.examsManager.generateExamFromNotes();
             
-            this.addSystemMessage('✅ New exam generated successfully! Check the Exams section.');
+            this.addSystemMessage('<i data-lucide="check-circle" style="width:16px;height:16px;display:inline-block;vertical-align:middle;margin-right:8px;"></i>New exam generated successfully! Check the Exams section.');
             this.closeSidebar();
         } catch (error) {
             console.error('Error generating exam:', error);

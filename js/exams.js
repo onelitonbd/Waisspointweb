@@ -145,7 +145,7 @@ export class ExamsManager {
         headerDiv.innerHTML = `
             <div class="message-bubble exam-header">
                 <div class="message-content">
-                    <h3>📋 ${examData.title}</h3>
+                    <h3><i data-lucide="clipboard-list" style="width:18px;height:18px;display:inline-block;vertical-align:middle;margin-right:8px;"></i>${examData.title}</h3>
                     <div class="exam-info">
                         <span>Questions: ${examData.totalQuestions || examData.questions?.length || 0}</span>
                         ${examData.completed ? `<span>Score: ${examData.score}/${examData.totalQuestions}</span>` : ''}
@@ -154,6 +154,11 @@ export class ExamsManager {
             </div>
         `;
         messagesContainer.appendChild(headerDiv);
+        
+        // Reinitialize icons
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
     }
 
     displayCurrentQuestion() {
@@ -180,6 +185,11 @@ export class ExamsManager {
             </div>
         `;
         messagesContainer.appendChild(questionDiv);
+        
+        // Reinitialize icons
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
 
         // Add submit button
         this.addSubmitButton();
@@ -281,13 +291,19 @@ export class ExamsManager {
         feedbackDiv.innerHTML = `
             <div class="message-bubble ${isCorrect ? 'correct-answer' : 'incorrect-answer'}">
                 <div class="message-content">
-                    ${isCorrect ? '✅ Correct!' : '❌ Incorrect'}
+                    ${isCorrect ? '<i data-lucide="check-circle" style="width:16px;height:16px;display:inline-block;vertical-align:middle;margin-right:4px;"></i>Correct!' : '<i data-lucide="x-circle" style="width:16px;height:16px;display:inline-block;vertical-align:middle;margin-right:4px;"></i>Incorrect'}
                     ${question.type === 'mcq' && !isCorrect ? 
                         `<br>Correct answer: ${question.options[question.correct]}` : ''}
                 </div>
             </div>
         `;
         messagesContainer.appendChild(feedbackDiv);
+        
+        // Reinitialize icons
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+        
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }
 
@@ -329,7 +345,7 @@ export class ExamsManager {
         resultsDiv.innerHTML = `
             <div class="message-bubble exam-results">
                 <div class="message-content">
-                    <h3>🎉 Exam Completed!</h3>
+                    <h3><i data-lucide="trophy" style="width:18px;height:18px;display:inline-block;vertical-align:middle;margin-right:8px;"></i>Exam Completed!</h3>
                     <div class="results-summary">
                         <div class="score-display">
                             <span class="score">${examData.score}/${examData.totalQuestions}</span>
@@ -344,6 +360,12 @@ export class ExamsManager {
             </div>
         `;
         messagesContainer.appendChild(resultsDiv);
+        
+        // Reinitialize icons
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+        
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }
 

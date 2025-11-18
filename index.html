@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Study Agent App</title>
     <link rel="stylesheet" href="css/style.css">
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
 </head>
 <body>
     <div id="app">
@@ -13,7 +14,7 @@
             <div class="auth-container">
                 <div class="auth-box">
                     <div class="auth-header">
-                        <div class="app-icon">📚</div>
+                        <div class="app-icon"><i data-lucide="graduation-cap"></i></div>
                         <h1>Study Agent</h1>
                     </div>
                     
@@ -47,7 +48,7 @@
             <div class="auth-container">
                 <div class="auth-box">
                     <div class="auth-header">
-                        <div class="app-icon">📚</div>
+                        <div class="app-icon"><i data-lucide="graduation-cap"></i></div>
                         <h1>Study Agent</h1>
                     </div>
                     
@@ -92,11 +93,11 @@
                 <!-- Top Bar -->
                 <div class="chat-header">
                     <div class="header-left">
-                        <span class="app-icon">📘</span>
+                        <span class="app-icon"><i data-lucide="book-open"></i></span>
                         <h2>Study Agent</h2>
                     </div>
                     <button id="menu-btn" class="menu-btn">
-                        <span class="menu-dots">⋮</span>
+                        <i data-lucide="menu"></i>
                     </button>
                 </div>
                 
@@ -116,7 +117,7 @@
                     <div class="input-wrapper">
                         <input type="text" id="chat-input" class="chat-input" placeholder="Type your message..." maxlength="1000">
                         <button id="send-btn" class="send-btn" disabled>
-                            <span class="send-icon">➤</span>
+                            <i data-lucide="send"></i>
                         </button>
                     </div>
                 </div>
@@ -126,20 +127,20 @@
                 <div id="sidebar" class="sidebar hidden">
                     <div class="sidebar-header">
                         <h3>Menu</h3>
-                        <button id="close-sidebar" class="close-btn">✕</button>
+                        <button id="close-sidebar" class="close-btn"><i data-lucide="x"></i></button>
                     </div>
                     <div class="sidebar-content">
                         <button class="sidebar-item new-chat-btn" id="new-chat-btn">
-                            <span class="sidebar-icon">💬</span>
+                            <span class="sidebar-icon"><i data-lucide="message-circle"></i></span>
                             New Chat
                         </button>
                         
                         <!-- Study Sessions Section -->
                         <div class="sidebar-section">
                             <button class="section-header" id="study-sessions-header">
-                                <span class="section-icon">📚</span>
+                                <span class="section-icon"><i data-lucide="book"></i></span>
                                 <span class="section-title">Study Sessions</span>
-                                <span class="section-arrow">▼</span>
+                                <span class="section-arrow"><i data-lucide="chevron-down"></i></span>
                             </button>
                             <div class="section-content" id="study-sessions-content">
                                 <div class="section-list" id="study-sessions-list">
@@ -151,9 +152,9 @@
                         <!-- Notes Section -->
                         <div class="sidebar-section">
                             <button class="section-header" id="notes-header">
-                                <span class="section-icon">📝</span>
+                                <span class="section-icon"><i data-lucide="file-text"></i></span>
                                 <span class="section-title">Notes</span>
-                                <span class="section-arrow">▼</span>
+                                <span class="section-arrow"><i data-lucide="chevron-down"></i></span>
                             </button>
                             <div class="section-content" id="notes-content">
                                 <div class="section-list" id="notes-list">
@@ -165,9 +166,9 @@
                         <!-- Exams Section -->
                         <div class="sidebar-section">
                             <button class="section-header" id="exams-header">
-                                <span class="section-icon">📋</span>
+                                <span class="section-icon"><i data-lucide="clipboard-list"></i></span>
                                 <span class="section-title">Exams</span>
-                                <span class="section-arrow">▼</span>
+                                <span class="section-arrow"><i data-lucide="chevron-down"></i></span>
                             </button>
                             <div class="section-content" id="exams-content">
                                 <div class="section-list" id="exams-list">
@@ -180,12 +181,12 @@
                         
                         <!-- Profile Section -->
                         <button class="sidebar-item" id="profile-btn">
-                            <span class="sidebar-icon">👤</span>
+                            <span class="sidebar-icon"><i data-lucide="user"></i></span>
                             Profile
                         </button>
                         
                         <button class="sidebar-item logout-item" id="sidebar-logout-btn">
-                            <span class="sidebar-icon">🚪</span>
+                            <span class="sidebar-icon"><i data-lucide="log-out"></i></span>
                             Logout
                         </button>
                     </div>
@@ -202,5 +203,9 @@
     <script type="module" src="js/exams.js"></script>
     <script type="module" src="js/sidebar.js"></script>
     <script type="module" src="js/app.js"></script>
+    <script>
+        // Initialize Lucide icons
+        lucide.createIcons();
+    </script>
 </body>
 </html>
