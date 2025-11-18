@@ -83,6 +83,12 @@ class AuthManager {
         if (!window.sidebarManager) {
             import('./sidebar.js').then(module => {
                 window.sidebarManager = new module.SidebarManager();
+                // Reinitialize Lucide icons after sidebar is loaded
+                setTimeout(() => {
+                    if (typeof lucide !== 'undefined') {
+                        lucide.createIcons();
+                    }
+                }, 100);
             });
         }
     }

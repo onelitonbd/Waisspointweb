@@ -111,6 +111,8 @@
                         <button id="menu-btn" class="menu-btn">
                             <i data-lucide="menu"></i>
                         </button>
+                    </div>
+                    <div class="header-right">
                         <span class="app-icon"><i data-lucide="book-open"></i></span>
                         <h2>Study Agent</h2>
                     </div>
@@ -236,6 +238,35 @@
                 }
             }
         }
+        
+        // Direct sidebar toggle
+        document.addEventListener('DOMContentLoaded', () => {
+            const menuBtn = document.getElementById('menu-btn');
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebar-overlay');
+            const closeBtn = document.getElementById('close-sidebar');
+            
+            if (menuBtn) {
+                menuBtn.addEventListener('click', () => {
+                    sidebar.classList.add('open');
+                    overlay.classList.remove('hidden');
+                });
+            }
+            
+            if (closeBtn) {
+                closeBtn.addEventListener('click', () => {
+                    sidebar.classList.remove('open');
+                    overlay.classList.add('hidden');
+                });
+            }
+            
+            if (overlay) {
+                overlay.addEventListener('click', () => {
+                    sidebar.classList.remove('open');
+                    overlay.classList.add('hidden');
+                });
+            }
+        });
     </script>
 </body>
 </html>
