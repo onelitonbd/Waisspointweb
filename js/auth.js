@@ -78,6 +78,11 @@ class AuthManager {
         document.getElementById('login-page').classList.add('hidden');
         document.getElementById('signup-page').classList.add('hidden');
         document.getElementById('chat-page').classList.remove('hidden');
+        
+        // Initialize chat functionality if not already done
+        if (!window.chatManager) {
+            import('./chat.js');
+        }
     }
 
     clearErrors() {
