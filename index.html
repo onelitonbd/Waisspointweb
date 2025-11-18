@@ -129,24 +129,62 @@
                         <button id="close-sidebar" class="close-btn">✕</button>
                     </div>
                     <div class="sidebar-content">
-                        <button class="sidebar-item" id="new-chat-btn">
+                        <button class="sidebar-item new-chat-btn" id="new-chat-btn">
                             <span class="sidebar-icon">💬</span>
                             New Chat
                         </button>
-                        <button class="sidebar-item" id="history-btn">
-                            <span class="sidebar-icon">📚</span>
-                            Chat History
-                        </button>
-                        <button class="sidebar-item" id="notes-btn">
-                            <span class="sidebar-icon">📝</span>
-                            Notes
-                        </button>
-                        <button class="sidebar-item" id="exam-btn">
-                            <span class="sidebar-icon">📋</span>
-                            Exam Prep
-                        </button>
+                        
+                        <!-- Study Sessions Section -->
+                        <div class="sidebar-section">
+                            <button class="section-header" id="study-sessions-header">
+                                <span class="section-icon">📚</span>
+                                <span class="section-title">Study Sessions</span>
+                                <span class="section-arrow">▼</span>
+                            </button>
+                            <div class="section-content" id="study-sessions-content">
+                                <div class="section-list" id="study-sessions-list">
+                                    <div class="empty-state">No study sessions yet</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Notes Section -->
+                        <div class="sidebar-section">
+                            <button class="section-header" id="notes-header">
+                                <span class="section-icon">📝</span>
+                                <span class="section-title">Notes</span>
+                                <span class="section-arrow">▼</span>
+                            </button>
+                            <div class="section-content" id="notes-content">
+                                <div class="section-list" id="notes-list">
+                                    <div class="empty-state">No notes yet</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Exams Section -->
+                        <div class="sidebar-section">
+                            <button class="section-header" id="exams-header">
+                                <span class="section-icon">📋</span>
+                                <span class="section-title">Exams</span>
+                                <span class="section-arrow">▼</span>
+                            </button>
+                            <div class="section-content" id="exams-content">
+                                <div class="section-list" id="exams-list">
+                                    <div class="empty-state">No exams yet</div>
+                                </div>
+                            </div>
+                        </div>
+                        
                         <div class="sidebar-divider"></div>
-                        <button class="sidebar-item" id="sidebar-logout-btn">
+                        
+                        <!-- Profile Section -->
+                        <button class="sidebar-item" id="profile-btn">
+                            <span class="sidebar-icon">👤</span>
+                            Profile
+                        </button>
+                        
+                        <button class="sidebar-item logout-item" id="sidebar-logout-btn">
                             <span class="sidebar-icon">🚪</span>
                             Logout
                         </button>
@@ -160,6 +198,7 @@
     <script type="module" src="js/firebase-config.js"></script>
     <script type="module" src="js/auth.js"></script>
     <script type="module" src="js/chat.js"></script>
+    <script type="module" src="js/sidebar.js"></script>
     <script type="module" src="js/app.js"></script>
 </body>
 </html>

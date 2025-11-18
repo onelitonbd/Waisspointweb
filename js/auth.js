@@ -79,9 +79,14 @@ class AuthManager {
         document.getElementById('signup-page').classList.add('hidden');
         document.getElementById('chat-page').classList.remove('hidden');
         
-        // Initialize chat functionality if not already done
+        // Initialize chat and sidebar functionality if not already done
         if (!window.chatManager) {
             import('./chat.js');
+        }
+        if (!window.sidebarManager) {
+            import('./sidebar.js').then(module => {
+                window.sidebarManager = new module.SidebarManager();
+            });
         }
     }
 

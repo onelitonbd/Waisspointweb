@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Study Agent - Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f7fa;
+        }
+        .test-container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 6px;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        button {
+            background: #4299e1;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #3182ce; }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>📚 Study Agent App - Test Page</h1>
+        
+        <div class="status info">
+            <strong>Test Status:</strong> Ready to test Firebase configuration
+        </div>
+        
+        <h2>Features Implemented:</h2>
+        <ul>
+            <li>✅ Login/Sign-up pages with validation</li>
+            <li>✅ Chat interface with Gemini API integration</li>
+            <li>✅ Sidebar with collapsible sections</li>
+            <li>✅ Firebase integration for user history</li>
+            <li>✅ Mobile-first responsive design</li>
+        </ul>
+        
+        <h2>Firebase Configuration Required:</h2>
+        <div class="status error">
+            <strong>Important:</strong> Update <code>js/firebase-config.js</code> with your actual Firebase project credentials before testing.
+        </div>
+        
+        <h2>Gemini API Configuration:</h2>
+        <div class="status error">
+            <strong>Optional:</strong> Update <code>js/gemini-api.js</code> with your Gemini API key for real AI responses. The app works with simulated responses by default.
+        </div>
+        
+        <h2>Test Instructions:</h2>
+        <ol>
+            <li>Update Firebase configuration in <code>js/firebase-config.js</code></li>
+            <li>Open <code>index.html</code> in your browser</li>
+            <li>Test sign-up with a new account</li>
+            <li>Test login with existing credentials</li>
+            <li>Test chat functionality and message history</li>
+            <li>Test sidebar navigation and collapsible sections</li>
+        </ol>
+        
+        <div style="margin-top: 30px;">
+            <button onclick="window.location.href='index.html'">Go to Study Agent App</button>
+        </div>
+        
+        <h2>Next Steps:</h2>
+        <div class="status info">
+            The sidebar is now fully functional with Firebase integration. Ready for Notes & Exam pages implementation.
+        </div>
+    </div>
+</body>
+</html>

@@ -1,10 +1,20 @@
 // Chat functionality with Gemini API integration
-import { auth } from './firebase-config.js';
+import { auth, db } from './firebase-config.js';
 import { geminiAPI } from './gemini-api.js';
+import { 
+    collection, 
+    addDoc, 
+    updateDoc, 
+    doc, 
+    serverTimestamp 
+} from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 
 class ChatManager {
     constructor() {
         this.isTyping = false;
+        this.currentSessionId = null;
+        this.currentSessionType = 'study_sessions'; // Default to study sessions
+        this.messages = [];
         this.initEventListeners();
         this.initInputValidation();
     }
@@ -22,40 +32,7 @@ class ChatManager {
             }
         });
 
-        // Sidebar controls
-        document.getElementById('menu-btn').addEventListener('click', () => {
-            this.openSidebar();
-        });
-
-        document.getElementById('close-sidebar').addEventListener('click', () => {
-            this.closeSidebar();
-        });
-
-        document.getElementById('sidebar-overlay').addEventListener('click', () => {
-            this.closeSidebar();
-        });
-
-        // Sidebar menu items
-        document.getElementById('new-chat-btn').addEventListener('click', () => {
-            this.newChat();
-        });
-
-        document.getElementById('sidebar-logout-btn').addEventListener('click', () => {
-            this.logout();
-        });
-
-        // Other sidebar items (placeholder for future implementation)
-        document.getElementById('history-btn').addEventListener('click', () => {
-            this.showNotImplemented('Chat History');
-        });
-
-        document.getElementById('notes-btn').addEventListener('click', () => {
-            this.showNotImplemented('Notes');
-        });
-
-        document.getElementById('exam-btn').addEventListener('click', () => {
-            this.showNotImplemented('Exam Prep');
-        });
+        // Note: Sidebar controls are now handled by SidebarManager
     }
 
     initInputValidation() {
@@ -76,6 +53,7 @@ class ChatManager {
 
         // Add user message
         this.addMessage('user', message);
+        this.messages.push({ sender: 'user', content: message, timestamp: new Date() });
         chatInput.value = '';
         this.updateSendButton();
 
@@ -89,10 +67,16 @@ class ChatManager {
             // Remove typing indicator and add AI response
             this.hideTypingIndicator();
             this.addMessage('ai', aiResponse);
+            this.messages.push({ sender: 'ai', content: aiResponse, timestamp: new Date() });
+            
+            // Save to Firebase
+            await this.saveSession();
         } catch (error) {
             console.error('Error getting AI response:', error);
             this.hideTypingIndicator();
-            this.addMessage('ai', 'Sorry, I encountered an error. Please try again.');
+            const errorMessage = 'Sorry, I encountered an error. Please try again.';
+            this.addMessage('ai', errorMessage);
+            this.messages.push({ sender: 'ai', content: errorMessage, timestamp: new Date() });
         }
     }
 
@@ -182,17 +166,54 @@ class ChatManager {
         }
     }
 
-    openSidebar() {
-        document.getElementById('sidebar').classList.add('open');
-        document.getElementById('sidebar-overlay').classList.remove('hidden');
+    async saveSession() {
+        if (!auth.currentUser || this.messages.length === 0) return;
+
+        try {
+            const userId = auth.currentUser.uid;
+            const sessionData = {
+                title: this.generateSessionTitle(),
+                messages: this.messages,
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+                type: this.currentSessionType
+            };
+
+            if (this.currentSessionId) {
+                // Update existing session
+                const sessionRef = doc(db, 'users', userId, this.currentSessionType, this.currentSessionId);
+                await updateDoc(sessionRef, {
+                    messages: this.messages,
+                    updatedAt: serverTimestamp()
+                });
+            } else {
+                // Create new session
+                const sessionRef = await addDoc(
+                    collection(db, 'users', userId, this.currentSessionType),
+                    sessionData
+                );
+                this.currentSessionId = sessionRef.id;
+            }
+        } catch (error) {
+            console.error('Error saving session:', error);
+        }
     }
 
-    closeSidebar() {
-        document.getElementById('sidebar').classList.remove('open');
-        document.getElementById('sidebar-overlay').classList.add('hidden');
+    generateSessionTitle() {
+        // Generate title from first user message or use default
+        const firstUserMessage = this.messages.find(msg => msg.sender === 'user');
+        if (firstUserMessage) {
+            const title = firstUserMessage.content.substring(0, 50);
+            return title.length < firstUserMessage.content.length ? title + '...' : title;
+        }
+        return `Study Session - ${new Date().toLocaleDateString()}`;
     }
 
-    newChat() {
+    startNewSession(type = 'study_sessions') {
+        this.currentSessionId = null;
+        this.currentSessionType = type;
+        this.messages = [];
+        
         const messagesContainer = document.getElementById('chat-messages');
         messagesContainer.innerHTML = `
             <div class="message ai-message">
@@ -203,21 +224,47 @@ class ChatManager {
                 </div>
             </div>
         `;
-        this.closeSidebar();
     }
 
-    showNotImplemented(feature) {
-        this.addMessage('ai', `${feature} feature will be implemented in the next update. For now, you can continue chatting with me about your studies!`);
-        this.closeSidebar();
-    }
-
-    async logout() {
-        const { signOut } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js');
-        try {
-            await signOut(auth);
-        } catch (error) {
-            console.error('Logout failed:', error);
+    loadSession(sessionData, sessionId, sessionType) {
+        this.currentSessionId = sessionId;
+        this.currentSessionType = sessionType;
+        this.messages = sessionData.messages || [];
+        
+        const messagesContainer = document.getElementById('chat-messages');
+        messagesContainer.innerHTML = '';
+        
+        // Add session header
+        const headerMessages = {
+            'study_sessions': `📚 Study Session: ${sessionData.title || 'Untitled Session'}`,
+            'notes': `📝 Notes: ${sessionData.title || 'Untitled Notes'}`,
+            'exams': `📋 Exam: ${sessionData.title || 'Untitled Exam'}`
+        };
+        
+        this.addSystemMessage(headerMessages[sessionType]);
+        
+        // Load messages
+        if (this.messages && this.messages.length > 0) {
+            this.messages.forEach(message => {
+                this.addMessage(message.sender, message.content);
+            });
         }
+        
+        this.scrollToBottom();
+    }
+
+    addSystemMessage(content) {
+        const messagesContainer = document.getElementById('chat-messages');
+        
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message ai-message';
+        messageDiv.innerHTML = `
+            <div class="message-bubble" style="background: #f7fafc; border: 1px solid #e2e8f0; color: #4a5568;">
+                <div class="message-content" style="font-weight: 500;">${content}</div>
+            </div>
+        `;
+        
+        messagesContainer.appendChild(messageDiv);
     }
 }
 
@@ -225,3 +272,5 @@ class ChatManager {
 document.addEventListener('DOMContentLoaded', () => {
     window.chatManager = new ChatManager();
 });
+
+export { ChatManager };
