@@ -229,33 +229,46 @@ export class SidebarManager {
         }
     }
 
-    displayItem(type, data) {
-        // Use chat manager to load the session if available
-        if (window.chatManager) {
+    async displayItem(type, data) {
+        if (type === 'notes') {
+            // Handle notes display
+            try {
+                const { NotesManager } = await import('./notes.js');
+                const notesManager = new NotesManager();
+                notesManager.displayNote(data);
+            } catch (error) {
+                console.error('Error loading notes:', error);
+                this.fallbackDisplay(type, data);
+            }
+        } else if (window.chatManager) {
+            // Use chat manager for sessions and exams
             window.chatManager.loadSession(data, this.activeItem.id, type.replace('-', '_'));
         } else {
-            // Fallback if chat manager not available
-            const messagesContainer = document.getElementById('chat-messages');
-            messagesContainer.innerHTML = '';
-
-            const headerMessages = {
-                'study-sessions': `📚 Study Session: ${data.title || 'Untitled Session'}`,
-                'notes': `📝 Notes: ${data.title || 'Untitled Notes'}`,
-                'exams': `📋 Exam: ${data.title || 'Untitled Exam'}`
-            };
-
-            this.addSystemMessage(headerMessages[type]);
-
-            if (data.messages && Array.isArray(data.messages)) {
-                data.messages.forEach(message => {
-                    this.addMessage(message.sender, message.content);
-                });
-            } else if (data.content) {
-                this.addMessage('ai', data.content);
-            }
-
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            this.fallbackDisplay(type, data);
         }
+    }
+
+    fallbackDisplay(type, data) {
+        const messagesContainer = document.getElementById('chat-messages');
+        messagesContainer.innerHTML = '';
+
+        const headerMessages = {
+            'study-sessions': `📚 Study Session: ${data.title || 'Untitled Session'}`,
+            'notes': `📝 Notes: ${data.title || 'Untitled Notes'}`,
+            'exams': `📋 Exam: ${data.title || 'Untitled Exam'}`
+        };
+
+        this.addSystemMessage(headerMessages[type]);
+
+        if (data.messages && Array.isArray(data.messages)) {
+            data.messages.forEach(message => {
+                this.addMessage(message.sender, message.content);
+            });
+        } else if (data.content) {
+            this.addMessage('ai', data.content);
+        }
+
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }
 
     addSystemMessage(content) {

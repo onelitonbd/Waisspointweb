@@ -45,11 +45,20 @@ class NotesManager {
     }
 
     async generateStructuredNotes(conversationText, sessionTitle) {
-        // Simulate Gemini2 API call for note generation
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        try {
+            // Use Gemini2 API for note generation
+            const { geminiAPI } = await import('./gemini-api.js');
+            const notes = await geminiAPI.generateNotes(conversationText, sessionTitle);
+            return notes;
+        } catch (error) {
+            console.error('Error generating notes with Gemini2:', error);
+            // Fallback to simulated notes
+            return this.getSimulatedNotes(sessionTitle);
+        }
+    }
 
-        // Generate structured notes based on conversation
-        const notes = `# ${sessionTitle} - Notes
+    getSimulatedNotes(sessionTitle) {
+        return `# ${sessionTitle} - Notes
 
 ## Key Points
 • Main concepts discussed in the study session
@@ -71,8 +80,6 @@ This study session covered essential topics related to ${sessionTitle.toLowerCas
 
 ---
 *Notes automatically generated from study session*`;
-
-        return notes;
     }
 
     async saveNotes(sessionTitle, content) {

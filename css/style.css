@@ -550,6 +550,32 @@ body {
     100% { transform: rotate(360deg); }
 }
 
+/* Notes Styles */
+.note-content {
+    line-height: 1.6;
+    font-size: 15px;
+}
+
+.note-content h2 {
+    color: #2d3748;
+    margin: 20px 0 10px 0;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.note-content h3 {
+    color: #4a5568;
+    margin: 15px 0 8px 0;
+    font-size: 16px;
+    font-weight: 500;
+}
+
+.note-content hr {
+    margin: 20px 0;
+    border: none;
+    border-top: 1px solid #e2e8f0;
+}
+
 /* Mobile Responsive */
 @media (max-width: 480px) {
     .auth-box {

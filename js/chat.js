@@ -13,10 +13,21 @@ class ChatManager {
     constructor() {
         this.isTyping = false;
         this.currentSessionId = null;
-        this.currentSessionType = 'study_sessions'; // Default to study sessions
+        this.currentSessionType = 'study_sessions';
         this.messages = [];
+        this.notesManager = null;
         this.initEventListeners();
         this.initInputValidation();
+        this.initNotesManager();
+    }
+
+    async initNotesManager() {
+        try {
+            const { NotesManager } = await import('./notes.js');
+            this.notesManager = new NotesManager();
+        } catch (error) {
+            console.error('Error loading notes manager:', error);
+        }
     }
 
     initEventListeners() {
@@ -71,6 +82,12 @@ class ChatManager {
             
             // Save to Firebase
             await this.saveSession();
+            
+            // Generate notes if this is a study session and we have enough content
+            if (this.currentSessionType === 'study_sessions' && this.messages.length >= 4 && this.notesManager) {
+                const sessionTitle = this.generateSessionTitle();
+                await this.notesManager.generateNotesFromSession(sessionTitle, this.messages);
+            }
         } catch (error) {
             console.error('Error getting AI response:', error);
             this.hideTypingIndicator();
