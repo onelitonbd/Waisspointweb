@@ -7,7 +7,9 @@ import {
     orderBy, 
     onSnapshot,
     doc,
-    getDoc 
+    getDoc,
+    updateDoc,
+    deleteDoc 
 } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 
 export class SidebarManager {
@@ -20,9 +22,21 @@ export class SidebarManager {
         };
         this.activeItem = null;
         this.unsubscribes = [];
+        this.contextMenuTarget = null;
+        this.modalTarget = null;
+        this.longPressTimer = null;
         
         this.initEventListeners();
         this.initFirebaseListeners();
+        
+        // Initialize context menu after DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                this.initContextMenu();
+            });
+        } else {
+            this.initContextMenu();
+        }
     }
 
     initEventListeners() {
@@ -184,9 +198,14 @@ export class SidebarManager {
 
         // Add click listeners to items
         listElement.querySelectorAll('.section-item').forEach(item => {
-            item.addEventListener('click', () => {
-                this.loadItem(item.dataset.type, item.dataset.id);
+            item.addEventListener('click', (e) => {
+                if (!this.contextMenuTarget) {
+                    this.loadItem(item.dataset.type, item.dataset.id);
+                }
             });
+            
+            // Add context menu listeners
+            this.addContextMenuListeners(item);
         });
 
         // Update section content height if not collapsed
@@ -231,7 +250,8 @@ export class SidebarManager {
 
             // Load the item data
             const userId = auth.currentUser.uid;
-            const docRef = doc(db, 'users', userId, type, id);
+            const collectionName = type.replace('-', '_');
+            const docRef = doc(db, 'users', userId, collectionName, id);
             const docSnap = await getDoc(docRef);
             
             if (docSnap.exists()) {
@@ -447,6 +467,310 @@ export class SidebarManager {
         } catch (error) {
             console.error('Error generating exam:', error);
             this.addSystemMessage('❌ Error generating exam. Make sure you have notes available.');
+        }
+    }
+
+    initContextMenu() {
+        const contextMenu = document.getElementById('context-menu');
+        const modalOverlay = document.getElementById('modal-overlay');
+        const modalInput = document.getElementById('modal-input');
+        const modalTitle = document.getElementById('modal-title');
+        const modalConfirm = document.getElementById('modal-confirm');
+        const modalCancel = document.getElementById('modal-cancel');
+        const renameItem = document.getElementById('rename-item');
+        const deleteItem = document.getElementById('delete-item');
+
+        if (!contextMenu || !modalOverlay || !renameItem || !deleteItem) {
+            console.error('Context menu elements not found');
+            return;
+        }
+
+        // Hide context menu on outside click
+        document.addEventListener('click', (e) => {
+            if (contextMenu && !contextMenu.contains(e.target)) {
+                this.hideContextMenu();
+            }
+        });
+
+        // Rename item
+        renameItem.addEventListener('click', () => {
+            this.showRenameModal();
+        });
+
+        // Delete item
+        deleteItem.addEventListener('click', () => {
+            this.showDeleteModal();
+        });
+
+        // Modal actions
+        if (modalCancel) {
+            modalCancel.addEventListener('click', () => {
+                this.hideModal();
+            });
+        }
+
+        if (modalOverlay) {
+            modalOverlay.addEventListener('click', (e) => {
+                if (e.target === modalOverlay) {
+                    this.hideModal();
+                }
+            });
+        }
+
+        if (modalConfirm) {
+            modalConfirm.addEventListener('click', () => {
+                this.handleModalConfirm();
+            });
+        }
+
+        if (modalInput) {
+            modalInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    this.handleModalConfirm();
+                }
+            });
+        }
+    }
+
+    addContextMenuListeners(item) {
+        // Only add context menu to study sessions and exams
+        const itemType = item.dataset.type;
+        if (itemType !== 'study-sessions' && itemType !== 'exams') {
+            return;
+        }
+        
+        let longPressTimer;
+        let startX, startY;
+        const longPressDuration = 500; // 500ms
+
+        // Mouse events
+        item.addEventListener('mousedown', (e) => {
+            if (e.button === 2) return; // Ignore right click
+            
+            startX = e.clientX;
+            startY = e.clientY;
+            
+            longPressTimer = setTimeout(() => {
+                this.showContextMenu(e, item);
+            }, longPressDuration);
+        });
+
+        item.addEventListener('mouseup', () => {
+            clearTimeout(longPressTimer);
+        });
+
+        item.addEventListener('mousemove', (e) => {
+            const moveThreshold = 10;
+            if (Math.abs(e.clientX - startX) > moveThreshold || 
+                Math.abs(e.clientY - startY) > moveThreshold) {
+                clearTimeout(longPressTimer);
+            }
+        });
+
+        item.addEventListener('mouseleave', () => {
+            clearTimeout(longPressTimer);
+        });
+
+        // Touch events
+        item.addEventListener('touchstart', (e) => {
+            const touch = e.touches[0];
+            startX = touch.clientX;
+            startY = touch.clientY;
+            
+            longPressTimer = setTimeout(() => {
+                this.showContextMenu(e, item);
+            }, longPressDuration);
+        });
+
+        item.addEventListener('touchend', () => {
+            clearTimeout(longPressTimer);
+        });
+
+        item.addEventListener('touchmove', (e) => {
+            const touch = e.touches[0];
+            const moveThreshold = 10;
+            if (Math.abs(touch.clientX - startX) > moveThreshold || 
+                Math.abs(touch.clientY - startY) > moveThreshold) {
+                clearTimeout(longPressTimer);
+            }
+        });
+
+        // Right click context menu
+        item.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            this.showContextMenu(e, item);
+        });
+    }
+
+    showContextMenu(e, item) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        this.contextMenuTarget = {
+            element: item,
+            type: item.dataset.type,
+            id: item.dataset.id,
+            title: item.querySelector('.section-item-title').textContent
+        };
+
+        const contextMenu = document.getElementById('context-menu');
+        const rect = item.getBoundingClientRect();
+        
+        // Position context menu
+        let x = e.clientX || rect.right;
+        let y = e.clientY || rect.top;
+        
+        // Adjust position to keep menu in viewport
+        const menuWidth = 150;
+        const menuHeight = 80;
+        
+        if (x + menuWidth > window.innerWidth) {
+            x = window.innerWidth - menuWidth - 10;
+        }
+        
+        if (y + menuHeight > window.innerHeight) {
+            y = window.innerHeight - menuHeight - 10;
+        }
+        
+        contextMenu.style.left = x + 'px';
+        contextMenu.style.top = y + 'px';
+        contextMenu.style.display = 'block';
+        
+        // Add visual feedback
+        item.style.background = '#e2e8f0';
+    }
+
+    hideContextMenu() {
+        const contextMenu = document.getElementById('context-menu');
+        contextMenu.style.display = 'none';
+        
+        if (this.contextMenuTarget) {
+            this.contextMenuTarget.element.style.background = '';
+            this.contextMenuTarget = null;
+        }
+    }
+
+    showRenameModal() {
+        if (!this.contextMenuTarget) return;
+        
+        this.modalTarget = { ...this.contextMenuTarget };
+        
+        const modalOverlay = document.getElementById('modal-overlay');
+        const modalTitle = document.getElementById('modal-title');
+        const modalInput = document.getElementById('modal-input');
+        const modalConfirm = document.getElementById('modal-confirm');
+        
+        modalTitle.textContent = 'Rename Item';
+        modalInput.value = this.modalTarget.title;
+        modalConfirm.textContent = 'Save';
+        modalConfirm.className = 'modal-btn confirm';
+        
+        modalOverlay.style.display = 'flex';
+        modalInput.focus();
+        modalInput.select();
+        
+        this.hideContextMenu();
+    }
+
+    showDeleteModal() {
+        if (!this.contextMenuTarget) return;
+        
+        this.modalTarget = { ...this.contextMenuTarget };
+        
+        const modalOverlay = document.getElementById('modal-overlay');
+        const modalTitle = document.getElementById('modal-title');
+        const modalInput = document.getElementById('modal-input');
+        const modalConfirm = document.getElementById('modal-confirm');
+        
+        modalTitle.textContent = 'Delete Item';
+        modalInput.value = `Are you sure you want to delete "${this.modalTarget.title}"?`;
+        modalInput.disabled = true;
+        modalConfirm.textContent = 'Delete';
+        modalConfirm.className = 'modal-btn delete';
+        
+        modalOverlay.style.display = 'flex';
+        
+        this.hideContextMenu();
+    }
+
+    hideModal() {
+        const modalOverlay = document.getElementById('modal-overlay');
+        const modalInput = document.getElementById('modal-input');
+        
+        modalOverlay.style.display = 'none';
+        modalInput.disabled = false;
+        modalInput.value = '';
+        this.modalTarget = null;
+    }
+
+    async handleModalConfirm() {
+        if (!this.modalTarget) {
+            console.error('No modal target');
+            return;
+        }
+        
+        const modalTitle = document.getElementById('modal-title');
+        const modalInput = document.getElementById('modal-input');
+        
+        try {
+            if (modalTitle?.textContent === 'Rename Item') {
+                await this.renameItem(modalInput?.value.trim());
+            } else if (modalTitle?.textContent === 'Delete Item') {
+                await this.deleteItem();
+            }
+            
+            this.hideModal();
+        } catch (error) {
+            console.error('Error handling modal action:', error);
+            alert('An error occurred. Please try again.');
+        }
+    }
+
+    async renameItem(newTitle) {
+        if (!newTitle || !this.modalTarget) return;
+        
+        const { type, id } = this.modalTarget;
+        const userId = auth.currentUser.uid;
+        const collectionName = type.replace('-', '_');
+        
+        const docRef = doc(db, 'users', userId, collectionName, id);
+        await updateDoc(docRef, {
+            title: newTitle,
+            updatedAt: new Date()
+        });
+    }
+
+    async deleteItem() {
+        if (!this.modalTarget) {
+            console.error('No modal target for deletion');
+            return;
+        }
+        
+        const { type, id } = this.modalTarget;
+        const userId = auth.currentUser.uid;
+        const collectionName = type.replace('-', '_');
+        
+        const docRef = doc(db, 'users', userId, collectionName, id);
+        await deleteDoc(docRef);
+        
+        // Clear active item if it was the deleted one
+        if (this.activeItem && this.activeItem.type === type && this.activeItem.id === id) {
+            this.activeItem = null;
+            document.querySelectorAll('.section-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            
+            // Show default message
+            const messagesContainer = document.getElementById('chat-messages');
+            messagesContainer.innerHTML = `
+                <div class="message ai-message">
+                    <div class="message-bubble">
+                        <div class="message-content">
+                            Hello! I'm your AI study assistant. I can help you with studying, taking notes, and preparing for exams. What would you like to work on today?
+                        </div>
+                    </div>
+                </div>
+            `;
         }
     }
 

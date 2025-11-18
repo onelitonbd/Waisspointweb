@@ -216,6 +216,34 @@
                 </div>
             </div>
         </div>
+        
+        <!-- Context Menu -->
+        <div id="context-menu" class="context-menu">
+            <button class="context-menu-item" id="rename-item">
+                <i data-lucide="edit-2"></i>
+                Rename
+            </button>
+            <button class="context-menu-item delete" id="delete-item">
+                <i data-lucide="trash-2"></i>
+                Delete
+            </button>
+        </div>
+        
+        <!-- Modal -->
+        <div id="modal-overlay" class="modal-overlay">
+            <div class="modal">
+                <div class="modal-header">
+                    <h3 class="modal-title" id="modal-title">Rename Item</h3>
+                </div>
+                <div class="modal-body">
+                    <input type="text" class="modal-input" id="modal-input" placeholder="Enter new name...">
+                </div>
+                <div class="modal-actions">
+                    <button class="modal-btn cancel" id="modal-cancel">Cancel</button>
+                    <button class="modal-btn confirm" id="modal-confirm">Save</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Firebase SDKs -->
