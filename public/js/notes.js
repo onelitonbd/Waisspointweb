@@ -2,6 +2,8 @@
 import { auth, db } from './firebase-config.js';
 import { Gemini2Notes } from './gemini2-notes.js';
 import { markdownRenderer } from './markdown-renderer.js';
+import { ErrorHandler } from './error-handler.js';
+import { DataValidator } from './data-validator.js';
 import { 
     collection, 
     addDoc, 
@@ -30,28 +32,45 @@ class NotesManager {
 
     // Add note to existing session
     async addNoteToSession(sessionId, recentMessages) {
-        if (!auth.currentUser || !sessionId || !recentMessages || recentMessages.length === 0) return;
+        if (!auth.currentUser || !sessionId || !recentMessages || recentMessages.length === 0) {
+            ErrorHandler.logError('Notes', new Error('Missing required parameters for adding note to session'));
+            return;
+        }
 
-        try {
+        return await ErrorHandler.withErrorHandling(async () => {
             this.showNotesIndicator();
+            
+            // Validate messages array
+            if (!ErrorHandler.validateArray(recentMessages, 'Recent messages validation')) {
+                throw new Error('Invalid messages format');
+            }
             
             // Generate note content for recent messages
             const conversationText = recentMessages
+                .filter(msg => msg && msg.sender && msg.content)
                 .map(msg => `${msg.sender.toUpperCase()}: ${msg.content}`)
                 .join('\n\n');
+            
+            if (!conversationText.trim()) {
+                throw new Error('No valid message content found');
+            }
             
             const result = await this.gemini2.generateSessionNote(conversationText);
             
             if (result.success) {
-                await this.saveNoteToSession(sessionId, result.noteTitle, result.noteContent);
+                const saveResult = await this.saveNoteToSession(sessionId, result.noteTitle, result.noteContent);
+                if (!saveResult) {
+                    throw new Error('Failed to save note to session');
+                }
+            } else {
+                throw new Error(result.error || 'Failed to generate note');
             }
             
             this.hideNotesIndicator();
-            
-        } catch (error) {
-            console.error('Error adding note to session:', error);
+            return { success: true };
+        }, 'Add note to session', false).finally(() => {
             this.hideNotesIndicator();
-        }
+        });
     }
 
     showNotesIndicator() {
@@ -89,7 +108,17 @@ class NotesManager {
     }
 
     displaySessionNotes(sessionData) {
+        if (!sessionData) {
+            console.error('No session data provided');
+            return;
+        }
+
         const messagesContainer = document.getElementById('chat-messages');
+        if (!messagesContainer) {
+            console.error('Messages container not found');
+            return;
+        }
+        
         messagesContainer.innerHTML = '';
 
         // Add notes header
@@ -97,9 +126,9 @@ class NotesManager {
         headerDiv.className = 'message ai-message';
         headerDiv.innerHTML = `
             <div class="notes-header">
-                <h2><i data-lucide="file-text"></i>${sessionData.title} - Notes</h2>
+                <h2><i data-lucide="file-text"></i>${sessionData.title || 'Untitled Session'} - Notes</h2>
                 <div class="notes-info">
-                    ${sessionData.sessionNotes?.length || 0} notes • Created: ${this.formatDate(sessionData.createdAt)}
+                    ${Array.isArray(sessionData.sessionNotes) ? sessionData.sessionNotes.length : 0} notes • Created: ${this.formatDate(sessionData.createdAt)}
                 </div>
             </div>
         `;
@@ -117,7 +146,7 @@ class NotesManager {
 
         const container = document.getElementById('notes-container');
         
-        if (!sessionData.sessionNotes || sessionData.sessionNotes.length === 0) {
+        if (!Array.isArray(sessionData.sessionNotes) || sessionData.sessionNotes.length === 0) {
             container.innerHTML = `
                 <div class="empty-notes">
                     <i data-lucide="file-text"></i>
@@ -126,7 +155,9 @@ class NotesManager {
             `;
         } else {
             sessionData.sessionNotes.forEach((note, index) => {
-                this.addNoteSection(container, note, index);
+                if (note && note.title && note.content) {
+                    this.addNoteSection(container, note, index);
+                }
             });
         }
 
@@ -176,33 +207,47 @@ class NotesManager {
     }
 
     async saveNoteToSession(sessionId, noteTitle, noteContent) {
-        if (!auth.currentUser) return;
+        if (!auth.currentUser || !sessionId || !noteTitle || !noteContent) {
+            console.error('Missing required parameters for saving note');
+            return false;
+        }
 
         try {
             const userId = auth.currentUser.uid;
             const sessionRef = doc(db, 'users', userId, 'study_sessions', sessionId);
             const sessionDoc = await getDoc(sessionRef);
             
-            if (sessionDoc.exists()) {
-                const sessionData = sessionDoc.data();
-                const existingNotes = sessionData.sessionNotes || [];
-                
-                const newNote = {
-                    title: noteTitle,
-                    content: noteContent,
-                    createdAt: new Date(),
-                    index: existingNotes.length
-                };
-                
-                existingNotes.push(newNote);
-                
-                await updateDoc(sessionRef, {
-                    sessionNotes: existingNotes,
-                    updatedAt: serverTimestamp()
-                });
+            // Validate Firestore response
+            const validation = DataValidator.validateFirestoreResponse(sessionDoc, ['title']);
+            if (!validation.valid) {
+                ErrorHandler.logError('Notes', new Error(validation.error), { sessionId });
+                return false;
             }
+            
+            const sessionData = validation.data;
+            const existingNotes = Array.isArray(sessionData.sessionNotes) ? sessionData.sessionNotes : [];
+            
+            const rawNoteData = {
+                title: noteTitle,
+                content: noteContent,
+                index: existingNotes.length
+            };
+            
+            // Validate and sanitize note data
+            const safeNoteData = DataValidator.createSafeFirestoreData(rawNoteData, 'note');
+            safeNoteData.createdAt = new Date(); // Use Date instead of serverTimestamp for arrays
+            
+            existingNotes.push(safeNoteData);
+            
+            await updateDoc(sessionRef, {
+                sessionNotes: existingNotes,
+                updatedAt: serverTimestamp()
+            });
+            
+            return true;
         } catch (error) {
-            console.error('Error saving note to session:', error);
+            ErrorHandler.handleFirebaseError(error, 'Save note to session');
+            return false;
         }
     }
 

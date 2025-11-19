@@ -9,7 +9,8 @@ import {
     doc,
     getDoc,
     updateDoc,
-    deleteDoc 
+    deleteDoc,
+    serverTimestamp 
 } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 
 export class SidebarManager {
@@ -69,10 +70,7 @@ export class SidebarManager {
             this.toggleSection('exams');
         });
 
-        // New chat button
-        document.getElementById('new-chat-btn').addEventListener('click', () => {
-            this.newChat();
-        });
+        // New dropdown functionality is handled in index.html
 
         // Generate exam button (will be added dynamically)
         this.addGenerateExamButton();
@@ -103,52 +101,89 @@ export class SidebarManager {
     }
 
     initFirebaseListeners() {
-        if (!auth.currentUser) return;
+        if (!auth.currentUser) {
+            console.error('User not authenticated for Firebase listeners');
+            return;
+        }
 
         const userId = auth.currentUser.uid;
 
-        // Listen to study sessions
-        const studySessionsQuery = query(
-            collection(db, 'users', userId, 'study_sessions'),
-            orderBy('createdAt', 'desc')
-        );
-        
-        const studyUnsubscribe = onSnapshot(studySessionsQuery, (snapshot) => {
-            this.sections['study-sessions'].data = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            }));
-            this.updateSectionList('study-sessions');
-        });
+        try {
+            // Listen to study sessions
+            const studySessionsQuery = query(
+                collection(db, 'users', userId, 'study_sessions'),
+                orderBy('createdAt', 'desc')
+            );
+            
+            const studyUnsubscribe = onSnapshot(studySessionsQuery, (snapshot) => {
+                try {
+                    this.sections['study-sessions'].data = snapshot.docs.map(doc => {
+                        const data = doc.data();
+                        return {
+                            id: doc.id,
+                            title: data.title || 'Untitled Session',
+                            createdAt: data.createdAt,
+                            messages: Array.isArray(data.messages) ? data.messages : [],
+                            ...data
+                        };
+                    });
+                    this.updateSectionList('study-sessions');
+                } catch (error) {
+                    console.error('Error processing study sessions:', error);
+                }
+            }, (error) => {
+                console.error('Error listening to study sessions:', error);
+            });
 
-        // Listen to study sessions for notes
-        const notesUnsubscribe = onSnapshot(studySessionsQuery, (snapshot) => {
-            // Filter study sessions that have notes
-            this.sections['notes'].data = snapshot.docs
-                .map(doc => ({ id: doc.id, ...doc.data() }))
-                .filter(session => session.sessionNotes && session.sessionNotes.length > 0)
-                .map(session => ({
-                    ...session,
-                    title: `${session.title} - Notes`
-                }));
-            this.updateSectionList('notes');
-        });
+            // Listen to study sessions for notes
+            const notesUnsubscribe = onSnapshot(studySessionsQuery, (snapshot) => {
+                try {
+                    // Filter study sessions that have notes
+                    this.sections['notes'].data = snapshot.docs
+                        .map(doc => ({ id: doc.id, ...doc.data() }))
+                        .filter(session => session.sessionNotes && Array.isArray(session.sessionNotes) && session.sessionNotes.length > 0)
+                        .map(session => ({
+                            ...session,
+                            title: `${session.title || 'Untitled'} - Notes`
+                        }));
+                    this.updateSectionList('notes');
+                } catch (error) {
+                    console.error('Error processing notes:', error);
+                }
+            }, (error) => {
+                console.error('Error listening to notes:', error);
+            });
 
-        // Listen to exams
-        const examsQuery = query(
-            collection(db, 'users', userId, 'exams'),
-            orderBy('createdAt', 'desc')
-        );
-        
-        const examsUnsubscribe = onSnapshot(examsQuery, (snapshot) => {
-            this.sections['exams'].data = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            }));
-            this.updateSectionList('exams');
-        });
+            // Listen to exams
+            const examsQuery = query(
+                collection(db, 'users', userId, 'exams'),
+                orderBy('createdAt', 'desc')
+            );
+            
+            const examsUnsubscribe = onSnapshot(examsQuery, (snapshot) => {
+                try {
+                    this.sections['exams'].data = snapshot.docs.map(doc => {
+                        const data = doc.data();
+                        return {
+                            id: doc.id,
+                            title: data.title || 'Untitled Exam',
+                            createdAt: data.createdAt,
+                            questions: Array.isArray(data.questions) ? data.questions : [],
+                            ...data
+                        };
+                    });
+                    this.updateSectionList('exams');
+                } catch (error) {
+                    console.error('Error processing exams:', error);
+                }
+            }, (error) => {
+                console.error('Error listening to exams:', error);
+            });
 
-        this.unsubscribes = [studyUnsubscribe, notesUnsubscribe, examsUnsubscribe];
+            this.unsubscribes = [studyUnsubscribe, notesUnsubscribe, examsUnsubscribe];
+        } catch (error) {
+            console.error('Error setting up Firebase listeners:', error);
+        }
     }
 
     openSidebar() {
@@ -251,6 +286,11 @@ export class SidebarManager {
     }
 
     async loadItem(type, id) {
+        if (!auth.currentUser || !type || !id) {
+            console.error('Invalid parameters for loading item');
+            return;
+        }
+
         try {
             // Remove active class from all items
             document.querySelectorAll('.section-item').forEach(item => {
@@ -278,14 +318,23 @@ export class SidebarManager {
             
             if (docSnap.exists()) {
                 const data = docSnap.data();
-                this.displayItem(type, data);
+                
+                // Validate data before displaying
+                if (data && typeof data === 'object') {
+                    this.displayItem(type, data);
+                } else {
+                    console.error('Invalid document data:', data);
+                    this.showErrorMessage('Invalid data format');
+                }
             } else {
-                console.error('Document not found');
+                console.error('Document not found:', type, id);
+                this.showErrorMessage('Document not found');
             }
 
             this.closeSidebar();
         } catch (error) {
             console.error('Error loading item:', error);
+            this.showErrorMessage('Error loading item: ' + error.message);
         }
     }
 
@@ -766,62 +815,97 @@ export class SidebarManager {
     }
 
     async renameItem(newTitle) {
-        if (!newTitle || !this.modalTarget) return;
-        
-        const { type, id } = this.modalTarget;
-        const userId = auth.currentUser.uid;
-        
-        // Notes are stored within study sessions
-        const collectionName = type === 'notes' ? 'study_sessions' : type.replace('-', '_');
-        
-        const docRef = doc(db, 'users', userId, collectionName, id);
-        await updateDoc(docRef, {
-            title: newTitle,
-            updatedAt: new Date()
-        });
-    }
-
-    async deleteItem() {
-        if (!this.modalTarget) {
-            console.error('No modal target for deletion');
+        if (!newTitle || !this.modalTarget || !auth.currentUser) {
+            console.error('Invalid parameters for renaming item');
             return;
         }
         
-        const { type, id } = this.modalTarget;
-        const userId = auth.currentUser.uid;
-        
-        if (type === 'notes') {
-            // For notes, clear the sessionNotes array instead of deleting the document
-            const docRef = doc(db, 'users', userId, 'study_sessions', id);
-            await updateDoc(docRef, {
-                sessionNotes: [],
-                updatedAt: new Date()
-            });
-        } else {
-            // For other types, delete the document
-            const collectionName = type.replace('-', '_');
+        try {
+            const { type, id } = this.modalTarget;
+            const userId = auth.currentUser.uid;
+            
+            // Notes are stored within study sessions
+            const collectionName = type === 'notes' ? 'study_sessions' : type.replace('-', '_');
+            
             const docRef = doc(db, 'users', userId, collectionName, id);
-            await deleteDoc(docRef);
+            await updateDoc(docRef, {
+                title: newTitle,
+                updatedAt: serverTimestamp()
+            });
+        } catch (error) {
+            console.error('Error renaming item:', error);
+            throw error;
+        }
+    }
+
+    async deleteItem() {
+        if (!this.modalTarget || !auth.currentUser) {
+            console.error('No modal target for deletion or user not authenticated');
+            return;
         }
         
-        // Clear active item if it was the deleted one
-        if (this.activeItem && this.activeItem.type === type && this.activeItem.id === id) {
-            this.activeItem = null;
-            document.querySelectorAll('.section-item').forEach(item => {
-                item.classList.remove('active');
-            });
+        try {
+            const { type, id } = this.modalTarget;
+            const userId = auth.currentUser.uid;
             
-            // Show default message
-            const messagesContainer = document.getElementById('chat-messages');
+            if (type === 'notes') {
+                // For notes, clear the sessionNotes array instead of deleting the document
+                const docRef = doc(db, 'users', userId, 'study_sessions', id);
+                await updateDoc(docRef, {
+                    sessionNotes: [],
+                    updatedAt: serverTimestamp()
+                });
+            } else {
+                // For other types, delete the document
+                const collectionName = type.replace('-', '_');
+                const docRef = doc(db, 'users', userId, collectionName, id);
+                await deleteDoc(docRef);
+            }
+            
+            // Clear active item if it was the deleted one
+            if (this.activeItem && this.activeItem.type === type && this.activeItem.id === id) {
+                this.activeItem = null;
+                document.querySelectorAll('.section-item').forEach(item => {
+                    item.classList.remove('active');
+                });
+                
+                // Show default message
+                const messagesContainer = document.getElementById('chat-messages');
+                if (messagesContainer) {
+                    messagesContainer.innerHTML = `
+                        <div class="message ai-message">
+                            <div class="message-bubble">
+                                <div class="message-content">
+                                    Hello! I'm your AI study assistant. I can help you with studying, taking notes, and preparing for exams. What would you like to work on today?
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+        } catch (error) {
+            console.error('Error deleting item:', error);
+            throw error;
+        }
+    }
+
+    showErrorMessage(message) {
+        const messagesContainer = document.getElementById('chat-messages');
+        if (messagesContainer) {
             messagesContainer.innerHTML = `
                 <div class="message ai-message">
-                    <div class="message-bubble">
+                    <div class="message-bubble" style="background: #fed7d7; border: 1px solid #e53e3e; color: #c53030;">
                         <div class="message-content">
-                            Hello! I'm your AI study assistant. I can help you with studying, taking notes, and preparing for exams. What would you like to work on today?
+                            <i data-lucide="alert-circle" style="width:16px;height:16px;display:inline-block;vertical-align:middle;margin-right:8px;"></i>
+                            ${message}
                         </div>
                     </div>
                 </div>
             `;
+            
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            }
         }
     }
 

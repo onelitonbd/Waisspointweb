@@ -1,6 +1,8 @@
 // Exams functionality with Gemini3 AI integration
 import { auth, db } from './firebase-config.js';
 import { markdownRenderer } from './markdown-renderer.js';
+import { ErrorHandler } from './error-handler.js';
+import { DataValidator } from './data-validator.js';
 import { 
     collection, 
     addDoc, 
@@ -24,36 +26,54 @@ export class ExamsManager {
     }
 
     async generateExamFromNotes() {
-        if (!auth.currentUser) return;
+        if (!auth.currentUser) {
+            throw new Error('User not authenticated');
+        }
 
         try {
-            // Get user's notes
+            // Get user's study sessions with notes
             const userId = auth.currentUser.uid;
-            const notesQuery = query(
-                collection(db, 'users', userId, 'notes'),
+            const sessionsQuery = query(
+                collection(db, 'users', userId, 'study_sessions'),
                 orderBy('createdAt', 'desc')
             );
             
-            const notesSnapshot = await getDocs(notesQuery);
+            const sessionsSnapshot = await getDocs(sessionsQuery);
             
-            if (notesSnapshot.empty) {
-                throw new Error('No notes available for exam generation');
+            // Filter sessions that have notes
+            const sessionsWithNotes = sessionsSnapshot.docs
+                .map(doc => doc.data())
+                .filter(session => session.sessionNotes && Array.isArray(session.sessionNotes) && session.sessionNotes.length > 0);
+            
+            if (sessionsWithNotes.length === 0) {
+                throw new Error('No notes available for exam generation. Please create some study sessions with notes first.');
             }
 
-            // Combine notes content
-            const notesContent = notesSnapshot.docs
-                .map(doc => doc.data().content)
+            // Combine notes content from all sessions
+            const notesContent = sessionsWithNotes
+                .flatMap(session => session.sessionNotes)
+                .map(note => note.content)
                 .join('\n\n');
+
+            if (!notesContent.trim()) {
+                throw new Error('No valid notes content found');
+            }
 
             // Generate exam using Gemini3
             const examData = await this.generateExamQuestions(notesContent);
             
             // Save exam to Firebase
-            await this.saveExam(examData);
+            const examId = await this.saveExam(examData);
+            
+            if (examId) {
+                return { success: true, examId, examData };
+            } else {
+                throw new Error('Failed to save exam');
+            }
             
         } catch (error) {
             console.error('Error generating exam:', error);
-            throw error;
+            return { success: false, error: error.message };
         }
     }
 
@@ -99,33 +119,58 @@ export class ExamsManager {
     }
 
     async saveExam(examData) {
-        if (!auth.currentUser) return;
+        if (!auth.currentUser || !examData || !examData.questions || !Array.isArray(examData.questions)) {
+            console.error('Invalid exam data or user not authenticated');
+            return null;
+        }
 
         try {
             const userId = auth.currentUser.uid;
-            const exam = {
-                title: examData.title,
+            
+            const rawExamData = {
+                title: examData.title || `Exam - ${new Date().toLocaleDateString()}`,
                 questions: examData.questions,
-                createdAt: serverTimestamp(),
                 completed: false,
                 score: null,
                 totalQuestions: examData.questions.length
             };
 
-            const examRef = await addDoc(collection(db, 'users', userId, 'exams'), exam);
+            // Validate and sanitize exam data
+            const safeExamData = DataValidator.createSafeFirestoreData(rawExamData, 'exam');
+            safeExamData.createdAt = serverTimestamp();
+
+            const examRef = await addDoc(collection(db, 'users', userId, 'exams'), safeExamData);
             return examRef.id;
         } catch (error) {
-            console.error('Error saving exam:', error);
+            ErrorHandler.handleFirebaseError(error, 'Save exam');
+            return null;
         }
     }
 
     displayExam(examData, examId) {
+        // Validate exam data
+        if (!ErrorHandler.validateExamData(examData)) {
+            this.showExamError('Invalid exam data. Please try generating a new exam.');
+            return;
+        }
+
+        if (!examId) {
+            ErrorHandler.logError('Exams', new Error('Missing exam ID'));
+            this.showExamError('Invalid exam ID. Please try again.');
+            return;
+        }
+
         this.currentExam = { ...examData, id: examId };
         this.currentQuestionIndex = 0;
         this.userAnswers = [];
         this.score = 0;
 
         const messagesContainer = document.getElementById('chat-messages');
+        if (!messagesContainer) {
+            ErrorHandler.logError('Exams', new Error('Messages container not found'));
+            return;
+        }
+        
         messagesContainer.innerHTML = '';
 
         // Add exam header
@@ -163,7 +208,7 @@ export class ExamsManager {
     }
 
     displayCurrentQuestion() {
-        if (!this.currentExam || this.currentQuestionIndex >= this.currentExam.questions.length) {
+        if (!this.currentExam || !this.currentExam.questions || this.currentQuestionIndex >= this.currentExam.questions.length) {
             this.completeExam();
             return;
         }
@@ -323,7 +368,10 @@ export class ExamsManager {
     }
 
     async completeExam() {
-        if (!this.currentExam) return;
+        if (!this.currentExam || !auth.currentUser) {
+            console.error('No current exam or user not authenticated');
+            return;
+        }
 
         // Update exam in Firebase
         try {
@@ -332,19 +380,21 @@ export class ExamsManager {
             
             await updateDoc(examRef, {
                 completed: true,
-                score: this.score,
-                userAnswers: this.userAnswers,
+                score: this.score || 0,
+                userAnswers: this.userAnswers || [],
                 completedAt: serverTimestamp()
             });
 
             this.displayExamResults({
                 ...this.currentExam,
                 completed: true,
-                score: this.score
+                score: this.score || 0,
+                totalQuestions: this.currentExam.questions?.length || 0
             });
 
         } catch (error) {
             console.error('Error completing exam:', error);
+            this.showExamError('Failed to save exam results. Please try again.');
         }
     }
 
@@ -399,5 +449,23 @@ export class ExamsManager {
         if (percentage >= 70) return 'Good work! Review the areas you missed.';
         if (percentage >= 60) return 'Fair performance. More study is recommended.';
         return 'Keep studying! Review your notes and try again.';
+    }
+
+    showExamError(message) {
+        const messagesContainer = document.getElementById('chat-messages');
+        messagesContainer.innerHTML = `
+            <div class="message ai-message">
+                <div class="message-bubble">
+                    <div class="message-content">
+                        <i data-lucide="alert-circle" style="width:16px;height:16px;display:inline-block;vertical-align:middle;margin-right:8px;"></i>
+                        ${message}
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
     }
 }

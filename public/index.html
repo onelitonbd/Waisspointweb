@@ -169,10 +169,22 @@
                         <button id="close-sidebar" class="close-btn"><i data-lucide="x"></i></button>
                     </div>
                     <div class="sidebar-content">
-                        <button class="sidebar-item new-chat-btn" id="new-chat-btn">
-                            <span class="sidebar-icon"><i data-lucide="message-circle"></i></span>
-                            New Chat
-                        </button>
+                        <div class="new-dropdown">
+                            <button class="sidebar-item new-btn" id="new-btn">
+                                <span class="sidebar-icon"><i data-lucide="plus"></i></span>
+                                New
+                            </button>
+                            <div class="dropdown-menu hidden" id="new-dropdown-menu">
+                                <button class="dropdown-item" id="new-study-session">
+                                    <i data-lucide="book"></i>
+                                    Study Session
+                                </button>
+                                <button class="dropdown-item" id="new-exam">
+                                    <i data-lucide="clipboard-list"></i>
+                                    Exam
+                                </button>
+                            </div>
+                        </div>
                         
                         <!-- Study Sessions Section -->
                         <div class="sidebar-section">
@@ -260,6 +272,22 @@
                 </div>
             </div>
         </div>
+        
+        <!-- Notes Selection Modal -->
+        <div id="notes-selection-modal" class="notes-selection-modal">
+            <div class="notes-selection-content">
+                <button class="notes-selection-close" id="notes-selection-close">
+                    <i data-lucide="x"></i>
+                </button>
+                <div class="notes-selection-header">
+                    <h3 class="notes-selection-title">Select Notes for Exam</h3>
+                    <p class="notes-selection-subtitle">Choose which notes to base your exam on</p>
+                </div>
+                <div class="notes-list" id="notes-selection-list">
+                    <div class="notes-empty">Loading notes...</div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Firebase SDKs -->
@@ -309,6 +337,60 @@
             const overlay = document.getElementById('sidebar-overlay');
             const closeBtn = document.getElementById('close-sidebar');
             
+            // New dropdown functionality
+            const newBtn = document.getElementById('new-btn');
+            const dropdownMenu = document.getElementById('new-dropdown-menu');
+            const newStudySession = document.getElementById('new-study-session');
+            const newExam = document.getElementById('new-exam');
+            
+            if (newBtn && dropdownMenu) {
+                newBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    dropdownMenu.classList.toggle('hidden');
+                });
+                
+                // Close dropdown when clicking outside
+                document.addEventListener('click', () => {
+                    dropdownMenu.classList.add('hidden');
+                });
+                
+                dropdownMenu.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                });
+            }
+            
+            if (newStudySession) {
+                newStudySession.addEventListener('click', async () => {
+                    dropdownMenu.classList.add('hidden');
+                    // Start new study session
+                    if (window.chatManager) {
+                        window.chatManager.startNewSession('study_sessions');
+                        // Save initial session to create history entry
+                        await window.chatManager.saveSession();
+                    }
+                    // Close sidebar
+                    sidebar.classList.remove('open');
+                    overlay.classList.add('hidden');
+                    setTimeout(() => {
+                        sidebar.classList.add('hidden');
+                    }, 300);
+                });
+            }
+            
+            if (newExam) {
+                newExam.addEventListener('click', () => {
+                    dropdownMenu.classList.add('hidden');
+                    // Close sidebar
+                    sidebar.classList.remove('open');
+                    overlay.classList.add('hidden');
+                    setTimeout(() => {
+                        sidebar.classList.add('hidden');
+                    }, 300);
+                    // Show notes selection modal
+                    showNotesSelectionModal();
+                });
+            }
+            
             if (menuBtn) {
                 menuBtn.addEventListener('click', () => {
                     sidebar.classList.remove('hidden');
@@ -338,7 +420,133 @@
                     }, 300);
                 });
             }
+            
+            // Notes selection modal functionality
+            const notesModal = document.getElementById('notes-selection-modal');
+            const notesCloseBtn = document.getElementById('notes-selection-close');
+            
+            if (notesCloseBtn) {
+                notesCloseBtn.addEventListener('click', () => {
+                    notesModal.style.display = 'none';
+                });
+            }
+            
+            if (notesModal) {
+                notesModal.addEventListener('click', (e) => {
+                    if (e.target === notesModal) {
+                        notesModal.style.display = 'none';
+                    }
+                });
+            }
         });
+        
+        // Notes selection functions
+        async function showNotesSelectionModal() {
+            const modal = document.getElementById('notes-selection-modal');
+            const notesList = document.getElementById('notes-selection-list');
+            
+            modal.style.display = 'flex';
+            notesList.innerHTML = '<div class="notes-empty">Loading notes...</div>';
+            
+            try {
+                const notes = await fetchUserNotes();
+                displayNotesForSelection(notes);
+            } catch (error) {
+                console.error('Error loading notes:', error);
+                notesList.innerHTML = '<div class="notes-empty">Error loading notes</div>';
+            }
+        }
+        
+        async function fetchUserNotes() {
+            const { auth, db } = await import('./js/firebase-config.js');
+            const { collection, query, orderBy, getDocs } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
+            
+            if (!auth.currentUser) return [];
+            
+            const userId = auth.currentUser.uid;
+            const notesQuery = query(
+                collection(db, 'users', userId, 'notes'),
+                orderBy('createdAt', 'desc')
+            );
+            
+            const snapshot = await getDocs(notesQuery);
+            return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        }
+        
+        function displayNotesForSelection(notes) {
+            const notesList = document.getElementById('notes-selection-list');
+            
+            if (notes.length === 0) {
+                notesList.innerHTML = '<div class="notes-empty">No notes available. Create some notes first!</div>';
+                return;
+            }
+            
+            notesList.innerHTML = notes.map((note, index) => `
+                <div class="notes-item" data-note-id="${note.id}" data-note-index="${index}" onclick="selectNoteForExam(${index})">
+                    <div class="notes-item-icon">
+                        <i data-lucide="file-text"></i>
+                    </div>
+                    <div class="notes-item-content">
+                        <div class="notes-item-title">${note.title || 'Untitled Notes'}</div>
+                        <div class="notes-item-date">${formatDate(note.createdAt)}</div>
+                    </div>
+                </div>
+            `).join('');
+            
+            // Store notes data globally for access
+            window.notesForExam = notes;
+            
+            // Reinitialize icons
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            }
+        }
+        
+        async function selectNoteForExam(noteIndex) {
+            const modal = document.getElementById('notes-selection-modal');
+            modal.style.display = 'none';
+            
+            if (!window.notesForExam || !window.notesForExam[noteIndex]) {
+                alert('Note not found. Please try again.');
+                return;
+            }
+            
+            const note = window.notesForExam[noteIndex];
+            
+            try {
+                // Load the exam manager and generate exam
+                const { ExamsManager } = await import('./js/exams.js');
+                if (!window.examsManager) {
+                    window.examsManager = new ExamsManager();
+                }
+                
+                // Generate exam from selected note content
+                const result = await window.examsManager.generateExamFromNotes();
+                
+                if (result.success) {
+                    // Start exam session
+                    if (window.chatManager) {
+                        window.chatManager.startNewSession('exams');
+                        await window.chatManager.saveSession();
+                    }
+                    
+                    // Display the exam
+                    window.examsManager.displayExam(result.examData, result.examId);
+                } else {
+                    alert('Failed to create exam: ' + (result.error || 'Unknown error'));
+                }
+                
+            } catch (error) {
+                console.error('Error creating exam:', error);
+                alert('Failed to create exam. Please try again.');
+            }
+        }
+        
+        function formatDate(timestamp) {
+            if (!timestamp) return 'Unknown date';
+            const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+            return date.toLocaleDateString();
+        }
     </script>
 </body>
 </html>

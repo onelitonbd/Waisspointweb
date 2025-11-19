@@ -2,7 +2,11 @@
 import { auth, db } from './firebase-config.js';
 import { geminiAPI } from './gemini-api.js';
 import { Gemini1Teacher } from './gemini1-teacher.js';
+import { Gemini2Notes } from './gemini2-notes.js';
+import { Gemini3Exam } from './gemini3-exam.js';
 import { markdownRenderer } from './markdown-renderer.js';
+import { ErrorHandler } from './error-handler.js';
+import { DataValidator } from './data-validator.js';
 import { 
     collection, 
     addDoc, 
@@ -18,10 +22,27 @@ class ChatManager {
         this.currentSessionType = 'study_sessions';
         this.messages = [];
         this.notesManager = null;
-        this.teacher = new Gemini1Teacher();
+        this.teacher = null;
+        this.initTeacher();
         this.initEventListeners();
         this.initInputValidation();
         this.initNotesManager();
+    }
+
+    initTeacher() {
+        switch (this.currentSessionType) {
+            case 'study_sessions':
+                this.teacher = new Gemini1Teacher();
+                break;
+            case 'notes':
+                this.teacher = new Gemini2Notes();
+                break;
+            case 'exams':
+                this.teacher = new Gemini3Exam();
+                break;
+            default:
+                this.teacher = new Gemini1Teacher();
+        }
     }
 
     async initNotesManager() {
@@ -63,23 +84,34 @@ class ChatManager {
         const chatInput = document.getElementById('chat-input');
         const message = chatInput.value.trim();
 
-        if (!message || this.isTyping) return;
+        if (!ErrorHandler.validateString(message, 1, 'Chat message validation') || this.isTyping) {
+            return;
+        }
+
+        // Sanitize input
+        const sanitizedMessage = ErrorHandler.sanitizeInput(message);
 
         // Add user message
-        this.addMessage('user', message);
-        this.messages.push({ sender: 'user', content: message, timestamp: new Date() });
+        this.addMessage('user', sanitizedMessage);
+        this.messages.push({ sender: 'user', content: sanitizedMessage, timestamp: new Date() });
         chatInput.value = '';
         this.updateSendButton();
 
         // Show typing indicator
         this.showTypingIndicator();
 
-        try {
+        const result = await ErrorHandler.withErrorHandling(async () => {
             // Add user message to teacher history
-            this.teacher.addToHistory('user', message);
+            if (this.teacher && typeof this.teacher.addToHistory === 'function') {
+                this.teacher.addToHistory('user', sanitizedMessage);
+            }
             
             // Get teacher response
-            const teacherResult = await this.teacher.processMessage(message);
+            const teacherResult = await this.teacher.processMessage(sanitizedMessage);
+            
+            if (!teacherResult || !teacherResult.response) {
+                throw new Error('Invalid teacher response');
+            }
             
             // Remove typing indicator and add AI response
             this.hideTypingIndicator();
@@ -87,7 +119,9 @@ class ChatManager {
             this.messages.push({ sender: 'ai', content: teacherResult.response, timestamp: new Date() });
             
             // Add AI response to teacher history
-            this.teacher.addToHistory('ai', teacherResult.response);
+            if (this.teacher && typeof this.teacher.addToHistory === 'function') {
+                this.teacher.addToHistory('ai', teacherResult.response);
+            }
             
             // Handle special actions
             if (teacherResult.action === 'generate_notes') {
@@ -97,15 +131,23 @@ class ChatManager {
             }
             
             // Save to Firebase
-            await this.saveSession();
-            
-            // Generate notes if this is a study session and we have enough content
-            if (this.currentSessionType === 'study_sessions' && this.messages.length >= 4 && this.messages.length % 4 === 0 && this.notesManager) {
-                const recentMessages = this.messages.slice(-4);
-                await this.notesManager.addNoteToSession(this.currentSessionId, recentMessages);
+            const saveResult = await this.saveSession();
+            if (!saveResult) {
+                ErrorHandler.logError('Chat', new Error('Failed to save session'));
             }
-        } catch (error) {
-            console.error('Error getting AI response:', error);
+            
+            // Auto-generate notes after every 2 user messages
+            if (this.messages.length >= 4) {
+                const userMessages = this.messages.filter(msg => msg.sender === 'user');
+                if (userMessages.length >= 2 && userMessages.length % 2 === 0) {
+                    await this.autoGenerateNotes();
+                }
+            }
+            
+            return { success: true };
+        }, 'Send message', false);
+
+        if (!result.success) {
             this.hideTypingIndicator();
             const errorMessage = 'Sorry, I encountered an error. Please try again.';
             this.addMessage('ai', errorMessage);
@@ -206,35 +248,49 @@ class ChatManager {
     }
 
     async saveSession() {
-        if (!auth.currentUser || this.messages.length === 0) return;
+        if (!auth.currentUser) {
+            console.error('User not authenticated');
+            return false;
+        }
 
         try {
             const userId = auth.currentUser.uid;
-            const sessionData = {
+            
+            const rawSessionData = {
                 title: this.generateSessionTitle(),
-                messages: this.messages,
-                createdAt: serverTimestamp(),
-                updatedAt: serverTimestamp(),
-                type: this.currentSessionType
+                messages: this.messages || [],
+                type: this.currentSessionType || 'study_sessions'
             };
+
+            // Validate and sanitize session data
+            const safeSessionData = DataValidator.createSafeFirestoreData(rawSessionData, 'session');
+            
+            // Add timestamps
+            safeSessionData.createdAt = serverTimestamp();
+            safeSessionData.updatedAt = serverTimestamp();
 
             if (this.currentSessionId) {
                 // Update existing session
                 const sessionRef = doc(db, 'users', userId, this.currentSessionType, this.currentSessionId);
                 await updateDoc(sessionRef, {
-                    messages: this.messages,
+                    messages: safeSessionData.messages,
+                    title: safeSessionData.title,
                     updatedAt: serverTimestamp()
                 });
             } else {
                 // Create new session
                 const sessionRef = await addDoc(
                     collection(db, 'users', userId, this.currentSessionType),
-                    sessionData
+                    safeSessionData
                 );
                 this.currentSessionId = sessionRef.id;
             }
+            
+            return true;
         } catch (error) {
-            console.error('Error saving session:', error);
+            const userMessage = ErrorHandler.handleFirebaseError(error, 'Save session');
+            ErrorHandler.logError('Chat', error, { sessionType: this.currentSessionType, sessionId: this.currentSessionId });
+            return false;
         }
     }
 
@@ -245,19 +301,65 @@ class ChatManager {
             const title = firstUserMessage.content.substring(0, 50);
             return title.length < firstUserMessage.content.length ? title + '...' : title;
         }
-        return `Study Session - ${new Date().toLocaleDateString()}`;
+        
+        // Default titles based on session type
+        const defaultTitles = {
+            'study_sessions': `Study Session - ${new Date().toLocaleDateString()}`,
+            'exams': `Exam Prep - ${new Date().toLocaleDateString()}`,
+            'notes': `Notes - ${new Date().toLocaleDateString()}`
+        };
+        
+        return defaultTitles[this.currentSessionType] || `Session - ${new Date().toLocaleDateString()}`;
+    }
+
+    async autoGenerateNotes() {
+        if (!this.currentSessionId || !this.notesManager) {
+            return;
+        }
+
+        try {
+            // Show notes indicator
+            const notesIndicator = document.getElementById('notes-indicator');
+            if (notesIndicator) {
+                notesIndicator.classList.remove('hidden');
+            }
+            
+            // Get recent messages for note generation
+            const recentMessages = this.messages.slice(-4); // Last 4 messages
+            
+            // Use notes manager to add note to current session
+            await this.notesManager.addNoteToSession(this.currentSessionId, recentMessages);
+            
+            // Hide notes indicator after a delay
+            setTimeout(() => {
+                if (notesIndicator) {
+                    notesIndicator.classList.add('hidden');
+                }
+            }, 2000);
+            
+        } catch (error) {
+            console.error('Error auto-generating notes:', error);
+            const notesIndicator = document.getElementById('notes-indicator');
+            if (notesIndicator) {
+                notesIndicator.classList.add('hidden');
+            }
+        }
     }
 
     async handleNotesGeneration(content) {
-        if (this.notesManager) {
+        try {
+            const gemini2Notes = new Gemini2Notes();
             const sessionTitle = this.generateSessionTitle();
-            const result = await this.notesManager.generateDirectNotes(content, sessionTitle);
+            const result = await gemini2Notes.generateNotes(content, sessionTitle);
             
             if (result.success) {
                 this.addMessage('ai', `✅ Notes created successfully! Check the Notes section in the sidebar to view "${result.title}".`);
             } else {
                 this.addMessage('ai', '❌ Failed to create notes. Please try again.');
             }
+        } catch (error) {
+            console.error('Error generating notes with Gemini2:', error);
+            this.addMessage('ai', '❌ Failed to create notes. Please try again.');
         }
     }
 
@@ -285,32 +387,89 @@ class ChatManager {
         this.currentSessionId = null;
         this.currentSessionType = type;
         this.messages = [];
-        this.teacher.clearHistory();
+        
+        // Initialize the appropriate teacher for this session type
+        this.initTeacher();
+        if (this.teacher && typeof this.teacher.clearHistory === 'function') {
+            this.teacher.clearHistory();
+        }
         
         const messagesContainer = document.getElementById('chat-messages');
-        messagesContainer.innerHTML = `
-            <div class="message ai-message">
-                <div class="message-bubble">
-                    <div class="message-content">
-                        Hello! I'm your personal teacher and I'm excited to help you learn! 🎓 Whether you want to explore a new topic, solve problems, or dive deep into any subject, I'm here to guide you step by step. What would you like to learn about today?
+        
+        // Different welcome messages based on session type
+        const welcomeMessages = {
+            'study_sessions': `
+                <div class="message ai-message">
+                    <div class="message-bubble">
+                        <div class="message-content">
+                            Hello! I'm your personal teacher and I'm excited to help you learn! 🎓 Whether you want to explore a new topic, solve problems, or dive deep into any subject, I'm here to guide you step by step. What would you like to learn about today?
+                        </div>
                     </div>
                 </div>
-            </div>
-        `;
+            `,
+            'notes': `
+                <div class="message ai-message">
+                    <div class="message-bubble">
+                        <div class="message-content">
+                            📝 Hello! I'm your notes assistant. I can help you organize, summarize, and create comprehensive study notes from your learning sessions. What topic would you like to create notes for?
+                        </div>
+                    </div>
+                </div>
+            `,
+            'exams': `
+                <div class="message ai-message">
+                    <div class="message-bubble">
+                        <div class="message-content">
+                            📋 Welcome to Exam Mode! I'm your exam preparation assistant. I can help you:
+                            <br><br>
+                            • Create practice tests from your study materials
+                            • Generate questions on specific topics
+                            • Review and explain exam concepts
+                            • Provide study strategies for better performance
+                            <br><br>
+                            What subject or topic would you like to prepare for today?
+                        </div>
+                    </div>
+                </div>
+            `
+        };
+        
+        messagesContainer.innerHTML = welcomeMessages[type] || welcomeMessages['study_sessions'];
     }
 
     loadSession(sessionData, sessionId, sessionType) {
+        if (!sessionData || !sessionId || !sessionType) {
+            console.error('Invalid session data provided');
+            return;
+        }
+        
         this.currentSessionId = sessionId;
         this.currentSessionType = sessionType;
-        this.messages = sessionData.messages || [];
+        this.messages = Array.isArray(sessionData.messages) ? sessionData.messages.filter(msg => 
+            msg && typeof msg === 'object' && msg.sender && msg.content
+        ) : [];
+        
+        // Initialize the appropriate teacher for this session type
+        this.initTeacher();
         
         // Load conversation into teacher history
-        this.teacher.clearHistory();
-        this.messages.forEach(msg => {
-            this.teacher.addToHistory(msg.sender, msg.content);
-        });
+        if (this.teacher) {
+            if (typeof this.teacher.clearHistory === 'function') {
+                this.teacher.clearHistory();
+            }
+            if (typeof this.teacher.addToHistory === 'function') {
+                this.messages.forEach(msg => {
+                    this.teacher.addToHistory(msg.sender, msg.content);
+                });
+            }
+        }
         
         const messagesContainer = document.getElementById('chat-messages');
+        if (!messagesContainer) {
+            console.error('Messages container not found');
+            return;
+        }
+        
         messagesContainer.innerHTML = '';
         
         // Add session header
@@ -320,12 +479,14 @@ class ChatManager {
             'exams': `<i data-lucide="clipboard-list" style="width:16px;height:16px;display:inline-block;vertical-align:middle;margin-right:8px;"></i>Exam: ${sessionData.title || 'Untitled Exam'}`
         };
         
-        this.addSystemMessage(headerMessages[sessionType]);
+        this.addSystemMessage(headerMessages[sessionType] || `Session: ${sessionData.title || 'Untitled'}`);
         
         // Load messages
         if (this.messages && this.messages.length > 0) {
             this.messages.forEach(message => {
-                this.addMessage(message.sender, message.content);
+                if (message.sender && message.content) {
+                    this.addMessage(message.sender, message.content);
+                }
             });
         }
         
